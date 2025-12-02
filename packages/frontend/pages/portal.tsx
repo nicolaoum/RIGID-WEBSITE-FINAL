@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, User, Ticket, Notice } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, User, Ticket, Notice } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,19 +16,27 @@ export default function Portal() {
 
   const loadUserData = async () => {
     try {
-      const currentUser = await getCurrentUser();
+      const currentUser = getCurrentUser();
+      console.log('Current user:', currentUser);
+      console.log('User groups:', currentUser?.groups);
+      
       setUser(currentUser);
-      setIsStaff(currentUser?.groups?.includes('staff') || currentUser?.groups?.includes('admin') || false);
+      
+      const userIsStaff = currentUser?.groups?.includes('staff') || currentUser?.groups?.includes('admin') || false;
+      console.log('Is staff?', userIsStaff);
+      setIsStaff(userIsStaff);
 
       // Load notices for all users
       const noticesData = await getNotices();
       setNotices(noticesData);
 
       // Load tickets based on user role
-      if (currentUser?.groups?.includes('staff') || currentUser?.groups?.includes('admin')) {
+      if (userIsStaff) {
+        console.log('Loading all tickets for staff');
         const allTickets = await getAllTickets();
         setTickets(allTickets);
       } else {
+        console.log('Loading user tickets for resident');
         const userTickets = await getTickets();
         setTickets(userTickets);
       }
@@ -93,6 +101,21 @@ export default function Portal() {
 
 // Navigation Component
 function Navigation() {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
+    window.location.href = '/api/logout';
+  };
+
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -115,18 +138,26 @@ function Navigation() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <a
-              href="/api/login"
-              className="text-gray-700 hover:text-gray-900 font-semibold"
-            >
-              Login
-            </a>
-            <a
-              href="/api/logout"
-              className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
-            >
-              Logout
-            </a>
+            {user ? (
+              <>
+                <span className="text-gray-700 font-medium">
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <a
+                href="/api/login"
+                className="text-gray-700 hover:text-gray-900 font-semibold"
+              >
+                Login
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -340,10 +371,42 @@ function ResidentPortal({
 function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'closed'>('all');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [localTickets, setLocalTickets] = useState<Ticket[]>(tickets);
+  const [showClosed, setShowClosed] = useState(false);
 
-  const filteredTickets = tickets.filter(ticket => 
-    filter === 'all' ? true : ticket.status === filter
-  );
+  useEffect(() => {
+    setLocalTickets(tickets);
+  }, [tickets]);
+
+  const handleStatusChange = async (ticketId: string, newStatus: 'open' | 'in-progress' | 'resolved' | 'closed') => {
+    try {
+      await updateTicketStatus(ticketId, newStatus);
+      
+      // Update local state
+      setLocalTickets(prevTickets => 
+        prevTickets.map(t => 
+          t.id === ticketId ? { ...t, status: newStatus } : t
+        )
+      );
+      
+      // Update selected ticket if it's open
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket({ ...selectedTicket, status: newStatus });
+      }
+      
+      alert(`Ticket status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+      alert('Failed to update ticket status');
+    }
+  };
+
+  // Filter tickets based on selected filter and showClosed toggle
+  const filteredTickets = localTickets.filter(ticket => {
+    const statusMatch = filter === 'all' ? true : ticket.status === filter;
+    const closedFilter = showClosed ? true : (ticket.status !== 'closed' && ticket.status !== 'resolved');
+    return statusMatch && closedFilter;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -390,6 +453,23 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
               </span>
             </button>
           ))}
+        </div>
+
+        {/* Show Closed Toggle */}
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={() => setShowClosed(!showClosed)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${
+              showClosed
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            {showClosed ? '✓' : '○'} Show Closed/Resolved Tickets
+            <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
+              {tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length}
+            </span>
+          </button>
         </div>
 
         {/* Tickets Table */}
@@ -567,6 +647,45 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                   <div>
                     <label className="block text-sm font-semibold text-gray-600 mb-1">Created</label>
                     <p className="text-gray-900">{selectedTicket.createdAt && new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+                
+                {/* Status Update Buttons */}
+                <div className="pt-6 border-t border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-600 mb-3">Update Status</label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTicket.status !== 'open' && (
+                      <button
+                        onClick={() => handleStatusChange(selectedTicket.id!, 'open')}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold"
+                      >
+                        Mark as Open
+                      </button>
+                    )}
+                    {selectedTicket.status !== 'in-progress' && (
+                      <button
+                        onClick={() => handleStatusChange(selectedTicket.id!, 'in-progress')}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-semibold"
+                      >
+                        Mark In Progress
+                      </button>
+                    )}
+                    {selectedTicket.status !== 'resolved' && (
+                      <button
+                        onClick={() => handleStatusChange(selectedTicket.id!, 'resolved')}
+                        className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition font-semibold"
+                      >
+                        Mark as Resolved
+                      </button>
+                    )}
+                    {selectedTicket.status !== 'closed' && (
+                      <button
+                        onClick={() => handleStatusChange(selectedTicket.id!, 'closed')}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold"
+                      >
+                        Close Ticket
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

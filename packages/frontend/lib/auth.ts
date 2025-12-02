@@ -110,29 +110,77 @@ export const saveTokens = (tokens: TokenResponse) => {
 };
 
 /**
- * Get access token from localStorage
+ * Get access token from localStorage or cookies
  */
 export const getAccessToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  // Use ID token for Cognito User Pool authorizer
-  return localStorage.getItem(ID_TOKEN_KEY);
+  
+  // Try localStorage first
+  const token = localStorage.getItem(ID_TOKEN_KEY);
+  if (token) return token;
+  
+  // Fallback to cookies
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'rigid_id_token') {
+      return value;
+    }
+  }
+  
+  return null;
 };
 
 /**
- * Get ID token from localStorage
+ * Get ID token from localStorage or cookies
  */
 export const getIdToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(ID_TOKEN_KEY);
+  
+  // Try localStorage first
+  const token = localStorage.getItem(ID_TOKEN_KEY);
+  if (token) return token;
+  
+  // Fallback to cookies
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'rigid_id_token') {
+      // Also save to localStorage for future use
+      localStorage.setItem(ID_TOKEN_KEY, value);
+      
+      // Parse and save user info
+      const user = parseJWT(value);
+      if (user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      }
+      
+      return value;
+    }
+  }
+  
+  return null;
 };
 
 /**
- * Get current user from localStorage
+ * Get current user from localStorage or parse from token
  */
 export const getCurrentUser = (): User | null => {
   if (typeof window === 'undefined') return null;
+  
+  // Try localStorage first
   const userStr = localStorage.getItem(USER_KEY);
-  return userStr ? JSON.parse(userStr) : null;
+  if (userStr) {
+    return JSON.parse(userStr);
+  }
+  
+  // Try to get from token
+  const token = getIdToken();
+  if (token) {
+    return parseJWT(token);
+  }
+  
+  return null;
 };
 
 /**

@@ -13,9 +13,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   console.log('GET /tickets/all request:', JSON.stringify(event, null, 2));
 
   try {
-    // Verify user is staff or admin
-    const groups = event.requestContext.authorizer?.claims['cognito:groups'];
-    const isStaff = groups && (groups.includes('staff') || groups.includes('admin'));
+    // Verify user is staff or admin - handle comma-separated string from Cognito
+    const groupsClaim = event.requestContext.authorizer?.claims['cognito:groups'];
+    let groups: string[] = [];
+    
+    if (groupsClaim) {
+      if (Array.isArray(groupsClaim)) {
+        groups = groupsClaim;
+      } else if (typeof groupsClaim === 'string') {
+        groups = groupsClaim.split(',').map(g => g.trim());
+      }
+    }
+    
+    const isStaff = groups.some(g => g === 'staff' || g === 'admin');
 
     if (!isStaff) {
       return {

@@ -50,8 +50,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const tokens = await response.json();
 
-    // Redirect back to home with tokens as URL params
-    // The client-side will pick them up and save to localStorage
+    // Set tokens as HTTP-only cookies (no Secure flag for localhost)
+    const maxAge = tokens.expires_in || 3600; // Default to 1 hour
+    
+    res.setHeader('Set-Cookie', [
+      `rigid_access_token=${tokens.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
+      `rigid_id_token=${tokens.id_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
+      tokens.refresh_token ? `rigid_refresh_token=${tokens.refresh_token}; Path=/; Max-Age=${maxAge * 24}; HttpOnly; SameSite=Lax` : '',
+    ].filter(Boolean));
+
+    // Also redirect with tokens in URL for client-side localStorage
     const redirectParams = new URLSearchParams({
       access_token: tokens.access_token,
       id_token: tokens.id_token,

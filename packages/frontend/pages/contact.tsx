@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { getCurrentUser } from '@/lib/auth';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -219,6 +220,21 @@ export default function Contact() {
 
 // Navigation Component
 function Navigation() {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
+    window.location.href = '/api/logout';
+  };
+
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -241,12 +257,26 @@ function Navigation() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <a
-              href="/api/login"
-              className="text-gray-700 hover:text-gray-900 font-semibold"
-            >
-              Login
-            </a>
+            {user ? (
+              <>
+                <span className="text-gray-700 font-medium">
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-700 hover:text-gray-900 font-semibold"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <a
+                href="/api/login"
+                className="text-gray-700 hover:text-gray-900 font-semibold"
+              >
+                Login
+              </a>
+            )}
           </div>
         </div>
       </div>

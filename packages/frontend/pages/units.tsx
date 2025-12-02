@@ -26,6 +26,14 @@ export default function UnitsPage() {
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
 
+  const handleLogout = () => {
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
+    window.location.href = '/api/logout';
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       const [unitsData, userData] = await Promise.all([
@@ -170,6 +178,28 @@ export default function UnitsPage() {
               <Link href="/buildings" className="text-gray-600 hover:text-gray-900">Buildings</Link>
               <Link href="/portal" className="text-gray-600 hover:text-gray-900">Resident Portal</Link>
               <Link href="/contact" className="text-gray-600 hover:text-gray-900">Contact</Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <>
+                  <span className="text-gray-700 font-medium">
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-gray-700 hover:text-gray-900 font-semibold"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <a
+                  href="/api/login"
+                  className="text-gray-700 hover:text-gray-900 font-semibold"
+                >
+                  Login
+                </a>
+              )}
             </div>
           </div>
         </div>

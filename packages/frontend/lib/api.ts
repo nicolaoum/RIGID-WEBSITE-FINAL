@@ -69,6 +69,13 @@ export interface Notice {
   buildingId?: string;
 }
 
+export interface User {
+  email: string;
+  name?: string;
+  sub: string;
+  groups?: string[];
+}
+
 /**
  * Generic API request wrapper
  */
@@ -139,6 +146,33 @@ export const submitTicket = async (ticket: Ticket): Promise<{ success: boolean; 
  */
 export const getTickets = async (): Promise<Ticket[]> => {
   return apiRequest<Ticket[]>('/tickets');
+};
+
+/**
+ * Get all tickets across all users (staff/admin only)
+ */
+export const getAllTickets = async (): Promise<Ticket[]> => {
+  return apiRequest<Ticket[]>('/tickets/all');
+};
+
+/**
+ * Update ticket status (staff/admin only)
+ */
+export const updateTicketStatus = async (
+  ticketId: string, 
+  status: 'open' | 'in-progress' | 'resolved' | 'closed'
+): Promise<{ success: boolean }> => {
+  return apiRequest(`/tickets/${ticketId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+};
+
+/**
+ * Post a new ticket (alias for submitTicket for consistency)
+ */
+export const postTicket = async (ticket: Ticket): Promise<{ success: boolean; ticketId: string }> => {
+  return submitTicket(ticket);
 };
 
 /**

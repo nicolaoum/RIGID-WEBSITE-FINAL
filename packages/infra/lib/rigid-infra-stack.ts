@@ -222,6 +222,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     ticketsTable.grantReadWriteData(postTicketLambda);
 
+    // PUT /tickets/{ticketId}/status (staff only - authenticated)
+    const updateTicketStatusLambda = new lambda.Function(this, 'UpdateTicketStatusFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'updateTicketStatus.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    ticketsTable.grantReadWriteData(updateTicketStatusLambda);
+
     // GET /notices (authenticated)
     const getNoticesLambda = new lambda.Function(this, 'GetNoticesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -321,6 +333,14 @@ export class RigidInfraStack extends cdk.Stack {
     // GET /tickets/all (staff only)
     const ticketsAllResource = ticketsResource.addResource('all');
     ticketsAllResource.addMethod('GET', new apigateway.LambdaIntegration(getAllTicketsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // PUT /tickets/{ticketId}/status (staff only)
+    const ticketIdResource = ticketsResource.addResource('{ticketId}');
+    const ticketStatusResource = ticketIdResource.addResource('status');
+    ticketStatusResource.addMethod('PUT', new apigateway.LambdaIntegration(updateTicketStatusLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

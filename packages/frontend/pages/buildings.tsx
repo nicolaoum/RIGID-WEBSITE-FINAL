@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Building, getBuildings } from '../lib/api';
+import { getCurrentUser } from '../lib/auth';
 
 export default function BuildingsPage() {
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -11,7 +13,18 @@ export default function BuildingsPage() {
       setBuildings(data);
     };
     fetchData();
+    
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
+    window.location.href = '/api/logout';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,6 +40,28 @@ export default function BuildingsPage() {
               <Link href="/buildings" className="text-gray-900 font-semibold">Buildings</Link>
               <Link href="/portal" className="text-gray-600 hover:text-gray-900">Resident Portal</Link>
               <Link href="/contact" className="text-gray-600 hover:text-gray-900">Contact</Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <>
+                  <span className="text-gray-700 font-medium">
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-gray-700 hover:text-gray-900 font-semibold"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <a
+                  href="/api/login"
+                  className="text-gray-700 hover:text-gray-900 font-semibold"
+                >
+                  Login
+                </a>
+              )}
             </div>
           </div>
         </div>
