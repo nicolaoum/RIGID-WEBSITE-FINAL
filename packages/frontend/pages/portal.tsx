@@ -1,0 +1,588 @@
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { getCurrentUser } from '../lib/auth';
+import { getTickets, getAllTickets, getNotices, postTicket, User, Ticket, Notice } from '../lib/api';
+
+export default function Portal() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [isStaff, setIsStaff] = useState(false);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setIsStaff(currentUser?.groups?.includes('staff') || currentUser?.groups?.includes('admin') || false);
+
+      // Load notices for all users
+      const noticesData = await getNotices();
+      setNotices(noticesData);
+
+      // Load tickets based on user role
+      if (currentUser?.groups?.includes('staff') || currentUser?.groups?.includes('admin')) {
+        const allTickets = await getAllTickets();
+        setTickets(allTickets);
+      } else {
+        const userTickets = await getTickets();
+        setTickets(userTickets);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTicketSubmit = async (ticket: Ticket) => {
+    try {
+      await postTicket(ticket);
+      await loadUserData(); // Reload tickets
+      alert('Maintenance request submitted successfully!');
+    } catch (error) {
+      console.error('Error submitting ticket:', error);
+      alert('Failed to submit maintenance request');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Portal Access</h2>
+            <p className="text-gray-600 mb-8">Please log in to access the resident portal</p>
+            <a
+              href="/api/login"
+              className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+            >
+              Log In
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      
+      {isStaff ? (
+        <StaffPortal tickets={tickets} />
+      ) : (
+        <ResidentPortal user={user} tickets={tickets} notices={notices} onTicketSubmit={handleTicketSubmit} />
+      )}
+    </div>
+  );
+}
+
+// Navigation Component
+function Navigation() {
+  return (
+    <nav className="bg-white shadow-md sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex justify-between items-center">
+          <Link href="/" className="text-2xl font-bold text-gray-900">
+            Rigid Residential
+          </Link>
+          <div className="hidden md:flex space-x-1">
+            <Link href="/" className="text-gray-700 hover:text-gray-900 px-3 py-2">
+              Home
+            </Link>
+            <Link href="/buildings" className="text-gray-700 hover:text-gray-900 px-3 py-2">
+              Buildings
+            </Link>
+            <Link href="/portal" className="text-gray-700 hover:text-gray-900 px-3 py-2">
+              Portal
+            </Link>
+            <Link href="/contact" className="text-gray-700 hover:text-gray-900 px-3 py-2">
+              Contact
+            </Link>
+          </div>
+          <div className="flex items-center space-x-4">
+            <a
+              href="/api/login"
+              className="text-gray-700 hover:text-gray-900 font-semibold"
+            >
+              Login
+            </a>
+            <a
+              href="/api/logout"
+              className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
+            >
+              Logout
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// Resident Portal Component
+function ResidentPortal({
+  user,
+  tickets,
+  notices,
+  onTicketSubmit,
+}: {
+  user: User | null;
+  tickets: Ticket[];
+  notices: Notice[];
+  onTicketSubmit: (ticket: Ticket) => Promise<void>;
+}) {
+  const [ticketForm, setTicketForm] = useState({
+    subject: '',
+    description: '',
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    residentName: '',
+    unitNumber: '',
+    phoneNumber: '',
+    allowEntry: false,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onTicketSubmit({
+      residentEmail: user?.email || '',
+      ...ticketForm,
+    });
+    setTicketForm({ 
+      subject: '', 
+      description: '', 
+      priority: 'medium',
+      residentName: '',
+      unitNumber: '',
+      phoneNumber: '',
+      allowEntry: false,
+    });
+  };
+
+  return (
+    <section className="py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Resident Portal</h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* Notices */}
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-6">📢 Notices</h3>
+            <div className="space-y-4">
+              {notices.map((notice) => (
+                <div
+                  key={notice.id}
+                  className={`p-4 rounded-lg ${
+                    notice.type === 'urgent'
+                      ? 'bg-red-50 border border-red-200'
+                      : notice.type === 'warning'
+                      ? 'bg-yellow-50 border border-yellow-200'
+                      : 'bg-blue-50 border border-blue-200'
+                  }`}
+                >
+                  <h4 className="font-semibold text-gray-900 mb-1">{notice.title}</h4>
+                  <p className="text-sm text-gray-700 mb-2">{notice.content}</p>
+                  <p className="text-xs text-gray-500">{new Date(notice.publishedAt).toLocaleDateString()}</p>
+                </div>
+              ))}
+              {notices.length === 0 && (
+                <p className="text-gray-500 text-center py-8">No notices at this time</p>
+              )}
+            </div>
+          </div>
+
+          {/* Submit Maintenance Ticket */}
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-6">🔧 Submit Maintenance Request</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <input
+                  type="text"
+                  required
+                  value={ticketForm.subject}
+                  onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="Brief description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select
+                  value={ticketForm.priority}
+                  onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={ticketForm.description}
+                  onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="Detailed description of the issue"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+                <input
+                  type="text"
+                  required
+                  value={ticketForm.residentName}
+                  onChange={(e) => setTicketForm({ ...ticketForm, residentName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="Full name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label>
+                <input
+                  type="text"
+                  required
+                  value={ticketForm.unitNumber}
+                  onChange={(e) => setTicketForm({ ...ticketForm, unitNumber: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="e.g., 101, 202, etc."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  required
+                  value={ticketForm.phoneNumber}
+                  onChange={(e) => setTicketForm({ ...ticketForm, phoneNumber: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="+357 99 123456"
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="allowEntry"
+                  checked={ticketForm.allowEntry}
+                  onChange={(e) => setTicketForm({ ...ticketForm, allowEntry: e.target.checked })}
+                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                />
+                <label htmlFor="allowEntry" className="ml-2 text-sm font-medium text-gray-700">
+                  Allow entry if I'm not home
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+              >
+                Submit Request
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Your Tickets */}
+        <div className="bg-white rounded-xl p-6 shadow-lg">
+          <h3 className="text-2xl font-semibold text-gray-900 mb-6">📋 Your Maintenance Requests</h3>
+          <div className="space-y-4">
+            {tickets.map((ticket) => (
+              <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg shadow">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-semibold text-gray-900">{ticket.subject}</h4>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      ticket.status === 'resolved'
+                        ? 'bg-green-100 text-green-800'
+                        : ticket.status === 'in-progress'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {ticket.status}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700 mb-2">{ticket.description}</p>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Priority: {ticket.priority}</span>
+                  <span>{ticket.createdAt && new Date(ticket.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+            {tickets.length === 0 && (
+              <p className="text-gray-500 text-center py-8">No maintenance requests yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Staff Portal Component
+function StaffPortal({ tickets }: { tickets: Ticket[] }) {
+  const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'closed'>('all');
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+
+  const filteredTickets = tickets.filter(ticket => 
+    filter === 'all' ? true : ticket.status === filter
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'in-progress': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'closed': return 'bg-green-100 text-green-800 border-green-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <section className="py-16 bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold mb-4">👨‍💼 Staff Portal</h2>
+          <p className="text-gray-300 text-lg">Manage all maintenance requests across all buildings</p>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex flex-wrap justify-center gap-4 mb-8">
+          {(['all', 'open', 'in-progress', 'closed'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-6 py-2 rounded-lg font-semibold transition ${
+                filter === status
+                  ? 'bg-white text-gray-900'
+                  : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              {status === 'all' ? 'All Tickets' : status.replace('-', ' ').toUpperCase()}
+              <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
+                {status === 'all' ? tickets.length : tickets.filter(t => t.status === status).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Tickets Table */}
+        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b-2 border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subject</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Resident</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Priority</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredTickets.map((ticket) => (
+                  <tr key={ticket.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4 text-sm text-gray-900 font-mono">#{ticket.id?.substring(0, 8)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 font-semibold">{ticket.subject}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{ticket.residentName || ticket.residentEmail}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{ticket.unitNumber || 'N/A'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(ticket.priority)}`}>
+                        {ticket.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(ticket.status || 'open')}`}>
+                        {ticket.status || 'open'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {ticket.createdAt && new Date(ticket.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button 
+                        onClick={() => setSelectedTicket(ticket)}
+                        className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredTickets.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-lg">No {filter !== 'all' ? filter : ''} tickets found</p>
+            </div>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+          <div className="bg-yellow-100 rounded-lg p-6 border-2 border-yellow-300">
+            <div className="text-3xl font-bold text-yellow-900">
+              {tickets.filter(t => t.status === 'open').length}
+            </div>
+            <div className="text-yellow-700 font-semibold mt-1">Open Tickets</div>
+          </div>
+          <div className="bg-blue-100 rounded-lg p-6 border-2 border-blue-300">
+            <div className="text-3xl font-bold text-blue-900">
+              {tickets.filter(t => t.status === 'in-progress').length}
+            </div>
+            <div className="text-blue-700 font-semibold mt-1">In Progress</div>
+          </div>
+          <div className="bg-green-100 rounded-lg p-6 border-2 border-green-300">
+            <div className="text-3xl font-bold text-green-900">
+              {tickets.filter(t => t.status === 'closed').length}
+            </div>
+            <div className="text-green-700 font-semibold mt-1">Resolved</div>
+          </div>
+          <div className="bg-red-100 rounded-lg p-6 border-2 border-red-300">
+            <div className="text-3xl font-bold text-red-900">
+              {tickets.filter(t => t.priority === 'urgent' || t.priority === 'high').length}
+            </div>
+            <div className="text-red-700 font-semibold mt-1">High Priority</div>
+          </div>
+        </div>
+
+        {/* Ticket Details Modal */}
+        {selectedTicket && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTicket(null)}>
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-8" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Ticket Details</h3>
+                <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-gray-700 text-2xl">
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Ticket ID</label>
+                  <p className="text-gray-900 font-mono">#{selectedTicket.id}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Subject</label>
+                  <p className="text-gray-900 font-semibold text-lg">{selectedTicket.subject}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Description</label>
+                  <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{selectedTicket.description}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Resident Email</label>
+                    <p className="text-gray-900">{selectedTicket.residentEmail}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Priority</label>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getPriorityColor(selectedTicket.priority)}`}>
+                      {selectedTicket.priority}
+                    </span>
+                  </div>
+                </div>
+                
+                {selectedTicket.residentName && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Resident Name</label>
+                      <p className="text-gray-900">{selectedTicket.residentName}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Unit Number</label>
+                      <p className="text-gray-900">{selectedTicket.unitNumber || 'N/A'}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedTicket.phoneNumber && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Phone Number</label>
+                      <p className="text-gray-900">
+                        <a href={`tel:${selectedTicket.phoneNumber}`} className="text-blue-600 hover:text-blue-800">
+                          {selectedTicket.phoneNumber}
+                        </a>
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Entry Permission</label>
+                      <p className="text-gray-900">
+                        {selectedTicket.allowEntry ? (
+                          <span className="text-green-600 font-semibold">✓ Entry allowed</span>
+                        ) : (
+                          <span className="text-red-600 font-semibold">✗ Resident must be home</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Status</label>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(selectedTicket.status || 'open')}`}>
+                      {selectedTicket.status || 'open'}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Created</label>
+                    <p className="text-gray-900">{selectedTicket.createdAt && new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 flex gap-4">
+                <button 
+                  onClick={() => setSelectedTicket(null)}
+                  className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

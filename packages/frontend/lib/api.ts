@@ -1,0 +1,149 @@
+/**
+ * API client for communicating with AWS API Gateway
+ * Handles authentication headers and request/response formatting
+ */
+
+import { getAccessToken } from './auth';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export interface Unit {
+  id: string;
+  buildingId?: string;
+  buildingName: string;
+  unitNumber: string;
+  bedrooms: number;
+  bathrooms: number;
+  sqft: number;
+  rent: number;
+  price?: number;
+  available: boolean;
+  availableDate?: string;
+  imageUrl?: string;
+  images?: string[];
+  videoUrl?: string;
+}
+
+export interface Building {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  totalUnits: number;
+  availableUnits: number;
+  imageUrl?: string;
+  amenities: string[];
+}
+
+export interface Inquiry {
+  name: string;
+  email: string;
+  phone?: string;
+  unitId?: string;
+  message: string;
+}
+
+export interface Ticket {
+  id?: string;
+  residentEmail: string;
+  subject: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status?: 'open' | 'in-progress' | 'resolved' | 'closed';
+  residentName?: string;
+  unitNumber?: string;
+  phoneNumber?: string;
+  allowEntry?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  type: 'info' | 'warning' | 'urgent';
+  publishedAt: string;
+  buildingId?: string;
+}
+
+/**
+ * Generic API request wrapper
+ */
+const apiRequest = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const token = getAccessToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`API Error: ${response.status} - ${error}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Fetch all available units
+ */
+export const getUnits = async (): Promise<Unit[]> => {
+  return apiRequest<Unit[]>('/units');
+};
+
+/**
+ * Fetch all buildings
+ */
+export const getBuildings = async (): Promise<Building[]> => {
+  return apiRequest<Building[]>('/buildings');
+};
+
+/**
+ * Submit a general inquiry
+ */
+export const submitInquiry = async (inquiry: Inquiry): Promise<{ success: boolean; message: string }> => {
+  return apiRequest('/inquiries', {
+    method: 'POST',
+    body: JSON.stringify(inquiry),
+  });
+};
+
+/**
+ * Submit a maintenance ticket (requires authentication)
+ */
+export const submitTicket = async (ticket: Ticket): Promise<{ success: boolean; ticketId: string }> => {
+  return apiRequest('/tickets', {
+    method: 'POST',
+    body: JSON.stringify(ticket),
+  });
+};
+
+/**
+ * Get all tickets for current resident (requires authentication)
+ */
+export const getTickets = async (): Promise<Ticket[]> => {
+  return apiRequest<Ticket[]>('/tickets');
+};
+
+/**
+ * Get all notices (requires authentication)
+ */
+export const getNotices = async (): Promise<Notice[]> => {
+  return apiRequest<Notice[]>('/notices');
+};

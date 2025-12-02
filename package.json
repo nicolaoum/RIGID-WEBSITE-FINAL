@@ -1,0 +1,23 @@
+{
+  "name": "rigid-residential",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rigid Residential Web App - Monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/frontend",
+    "build": "npm run build --workspaces --if-present",
+    "deploy": "npm run deploy --workspace=packages/infra",
+    "install:all": "npm install",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

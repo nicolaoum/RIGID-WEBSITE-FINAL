@@ -1,0 +1,54 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  const buildings = [
+    {
+      id: 'bldg-001',
+      name: 'RIGID 1 Pierias',
+      address: 'Pierias Street',
+      city: 'Limassol',
+      state: '',
+      zip: '',
+      totalUnits: 12,
+      availableUnits: 2,
+      imageUrl: null,
+      amenities: ['Elevator', 'Parking', 'Storage'],
+    },
+    {
+      id: 'bldg-002',
+      name: 'RIGID 2 Stadiou',
+      address: 'Stadiou Street',
+      city: 'Limassol',
+      state: '',
+      zip: '',
+      totalUnits: 8,
+      availableUnits: 1,
+      imageUrl: null,
+      amenities: ['Elevator', 'Parking', 'Balconies'],
+    },
+    {
+      id: 'bldg-003',
+      name: 'RIGID 3 Ektoros',
+      address: 'Ektoros Street',
+      city: 'Limassol',
+      state: '',
+      zip: '',
+      totalUnits: 10,
+      availableUnits: 2,
+      imageUrl: null,
+      amenities: ['Elevator', 'Parking', 'Storage', 'Modern Design'],
+    },
+  ];
+
+  res.status(200).json(buildings);
+}

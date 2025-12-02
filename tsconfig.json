@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true
+  },
+  "exclude": ["node_modules", "cdk.out", "packages"],
+  "references": [
+    { "path": "./packages/frontend" },
+    { "path": "./packages/lambdas" },
+    { "path": "./packages/infra" }
+  ],
+  "files": []
+}
