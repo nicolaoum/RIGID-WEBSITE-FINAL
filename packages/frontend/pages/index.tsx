@@ -66,61 +66,54 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Rigid Residential - Premium Living in Limassol</title>
-        <meta name="description" content="Premium residential buildings in Limassol, Cyprus" />
+        <title>Rigid Residential - Quality Homes in Nicosia</title>
+        <meta name="description" content="Residential apartments in Nicosia, Cyprus" />
       </Head>
 
       <Navigation />
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-gray-900 to-gray-800 text-white py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            Premium Living in Nicosia
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
-            Experience modern comfort and convenience in our three thoughtfully designed residential buildings in the heart of Nicosia, Cyprus.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
-              href="/buildings"
-              className="inline-block bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition text-lg"
-            >
-              View Our Buildings
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-block border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-gray-900 transition text-lg"
-            >
-              Contact Us
-            </Link>
-          </div>
-          
-          {/* Stats */}
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
-            <div className="text-center">
-              <div className="text-4xl font-bold mb-2">3</div>
-              <div className="text-gray-300 text-lg">Premium Buildings</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold mb-2">30</div>
-              <div className="text-gray-300 text-lg">Total Apartments</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold mb-2">24/7</div>
-              <div className="text-gray-300 text-lg">Maintenance Support</div>
+      <section className="relative bg-white py-20 overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-100"></div>
+        <div className="absolute top-0 right-0 w-1/2 h-full opacity-5">
+          <div className="absolute top-20 right-20 w-96 h-96 bg-gray-900 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              Welcome to<br />
+              <span className="text-gray-700">Rigid Residential</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+              Quality residential living in Nicosia, Cyprus. Find your next home in one of our three buildings.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link
+                href="/buildings"
+                className="inline-block bg-gray-900 text-white px-8 py-4 rounded-lg font-semibold hover:bg-gray-800 transition shadow-lg hover:shadow-xl"
+              >
+                View Buildings
+              </Link>
+              <Link
+                href="/contact"
+                className="inline-block border-2 border-gray-900 text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-900 hover:text-white transition"
+              >
+                Get in Touch
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* Buildings Section */}
-      <section className="py-20">
+      <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Buildings</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Choose from three exceptional residential buildings, each offering unique amenities and modern living spaces.
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Our Buildings</h2>
+            <p className="text-lg text-gray-600">
+              Explore our residential properties in Nicosia.
             </p>
           </div>
 
@@ -197,36 +190,36 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Choose Us Section */}
-      <section className="py-20 bg-white">
+      {/* About Rigid Section */}
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose Rigid Residential</h2>
-            <p className="text-xl text-gray-600">Premium living experience with professional management</p>
+          <div className="mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Why Rigid?</h2>
+            <p className="text-lg text-gray-600">Simple, reliable residential management</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6">
-              <div className="text-5xl mb-4">🏠</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Modern Apartments</h3>
+            <div className="bg-white p-6 rounded-lg">
+              <div className="text-4xl mb-3">🏠</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Quality Homes</h3>
               <p className="text-gray-600">
-                Thoughtfully designed living spaces with contemporary finishes and layouts
+                Well-maintained apartments designed for comfortable living
               </p>
             </div>
 
-            <div className="text-center p-6">
-              <div className="text-5xl mb-4">📍</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Prime Location</h3>
+            <div className="bg-white p-6 rounded-lg">
+              <div className="text-4xl mb-3">📍</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Great Locations</h3>
               <p className="text-gray-600">
-                Located in desirable areas of Nicosia with easy access to amenities
+                Convenient areas in Nicosia with easy access to what you need
               </p>
             </div>
 
-            <div className="text-center p-6">
-              <div className="text-5xl mb-4">🔧</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">24/7 Support</h3>
+            <div className="bg-white p-6 rounded-lg">
+              <div className="text-4xl mb-3">🔧</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Responsive Support</h3>
               <p className="text-gray-600">
-                Round-the-clock maintenance and responsive property management
+                Quick maintenance assistance whenever you need it
               </p>
             </div>
           </div>
@@ -315,7 +308,7 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <h3 className="text-xl font-bold mb-4">Rigid Residential</h3>
-            <p className="text-gray-400">Premium living spaces designed for modern life in Nicosia, Cyprus.</p>
+            <p className="text-gray-400">Quality residential apartments in Nicosia, Cyprus.</p>
           </div>
           <div>
             <h4 className="text-lg font-semibold mb-4">Quick Links</h4>

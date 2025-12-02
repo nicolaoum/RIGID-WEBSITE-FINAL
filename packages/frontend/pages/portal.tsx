@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, User, Ticket, Notice } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, getBuildings, User, Ticket, Notice, Resident, Building } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -9,6 +9,8 @@ export default function Portal() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [isStaff, setIsStaff] = useState(false);
+  const [isResident, setIsResident] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -26,19 +28,35 @@ export default function Portal() {
       console.log('Is staff?', userIsStaff);
       setIsStaff(userIsStaff);
 
-      // Load notices for all users
-      const noticesData = await getNotices();
-      setNotices(noticesData);
+      // Check if user is an approved resident
+      try {
+        const residentCheck = await checkResident();
+        console.log('Resident check:', residentCheck);
+        
+        if (residentCheck.isResident) {
+          setIsResident(true);
+          
+          // Load notices for all users
+          const noticesData = await getNotices();
+          setNotices(noticesData);
 
-      // Load tickets based on user role
-      if (userIsStaff) {
-        console.log('Loading all tickets for staff');
-        const allTickets = await getAllTickets();
-        setTickets(allTickets);
-      } else {
-        console.log('Loading user tickets for resident');
-        const userTickets = await getTickets();
-        setTickets(userTickets);
+          // Load tickets based on user role
+          if (userIsStaff) {
+            console.log('Loading all tickets for staff');
+            const allTickets = await getAllTickets();
+            setTickets(allTickets);
+          } else {
+            console.log('Loading user tickets for resident');
+            const userTickets = await getTickets();
+            setTickets(userTickets);
+          }
+        } else {
+          console.log('User is not an approved resident');
+          setAccessDenied(true);
+        }
+      } catch (error) {
+        console.error('Error checking resident status:', error);
+        setAccessDenied(true);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -80,6 +98,35 @@ export default function Portal() {
             >
               Log In
             </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">🚫</div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Access Restricted</h2>
+            <p className="text-gray-600 mb-4">
+              This portal is only accessible to approved residents of Rigid Residential.
+            </p>
+            <p className="text-gray-600 mb-8">
+              If you believe this is an error, please contact management at{' '}
+              <a href="mailto:info@rigidresidential.com" className="text-blue-600 hover:text-blue-800">
+                info@rigidresidential.com
+              </a>
+            </p>
+            <Link
+              href="/"
+              className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+            >
+              Return Home
+            </Link>
           </div>
         </div>
       </div>
@@ -372,11 +419,75 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'closed'>('all');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [localTickets, setLocalTickets] = useState<Ticket[]>(tickets);
-  const [showClosed, setShowClosed] = useState(false);
+  const [showResidentTab, setShowResidentTab] = useState(false);
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newResident, setNewResident] = useState({
+    email: '',
+    name: '',
+    unitNumber: '',
+    buildingId: '',
+    phoneNumber: '',
+  });
 
   useEffect(() => {
     setLocalTickets(tickets);
   }, [tickets]);
+
+  useEffect(() => {
+    if (showResidentTab) {
+      loadResidents();
+    }
+  }, [showResidentTab]);
+
+  const loadResidents = async () => {
+    try {
+      const [residentsData, buildingsData] = await Promise.all([
+        getResidents(),
+        getBuildings(),
+      ]);
+      setResidents(residentsData);
+      setBuildings(buildingsData);
+    } catch (error) {
+      console.error('Error loading residents:', error);
+    }
+  };
+
+  const handleAddResident = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addResident(newResident);
+      setShowAddForm(false);
+      setNewResident({
+        email: '',
+        name: '',
+        unitNumber: '',
+        buildingId: '',
+        phoneNumber: '',
+      });
+      await loadResidents();
+      alert('Resident added successfully!');
+    } catch (error) {
+      console.error('Error adding resident:', error);
+      alert('Failed to add resident');
+    }
+  };
+
+  const handleDeleteResident = async (residentId: string) => {
+    if (!confirm('Are you sure you want to remove this resident?')) {
+      return;
+    }
+
+    try {
+      await deleteResident(residentId);
+      await loadResidents();
+      alert('Resident removed successfully');
+    } catch (error) {
+      console.error('Error deleting resident:', error);
+      alert('Failed to remove resident');
+    }
+  };
 
   const handleStatusChange = async (ticketId: string, newStatus: 'open' | 'in-progress' | 'resolved' | 'closed') => {
     try {
@@ -401,11 +512,13 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
     }
   };
 
-  // Filter tickets based on selected filter and showClosed toggle
+  // Filter tickets based on selected filter
   const filteredTickets = localTickets.filter(ticket => {
-    const statusMatch = filter === 'all' ? true : ticket.status === filter;
-    const closedFilter = showClosed ? true : (ticket.status !== 'closed' && ticket.status !== 'resolved');
-    return statusMatch && closedFilter;
+    if (filter === 'all') {
+      // "All Tickets" shows only non-closed tickets
+      return ticket.status !== 'closed' && ticket.status !== 'resolved';
+    }
+    return ticket.status === filter;
   });
 
   const getStatusColor = (status: string) => {
@@ -432,40 +545,85 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">👨‍💼 Staff Portal</h2>
-          <p className="text-gray-300 text-lg">Manage all maintenance requests across all buildings</p>
+          <p className="text-gray-300 text-lg">Manage all maintenance requests and residents</p>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex flex-wrap justify-center gap-4 mb-8">
-          {(['all', 'open', 'in-progress', 'closed'] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-6 py-2 rounded-lg font-semibold transition ${
-                filter === status
-                  ? 'bg-white text-gray-900'
-                  : 'bg-gray-700 text-white hover:bg-gray-600'
-              }`}
-            >
-              {status === 'all' ? 'All Tickets' : status.replace('-', ' ').toUpperCase()}
-              <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
-                {status === 'all' ? tickets.length : tickets.filter(t => t.status === status).length}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Show Closed Toggle */}
-        <div className="flex justify-center mb-6">
+        {/* Tab Buttons */}
+        <div className="flex justify-center gap-4 mb-8">
           <button
-            onClick={() => setShowClosed(!showClosed)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${
-              showClosed
-                ? 'bg-green-500 text-white hover:bg-green-600'
+            onClick={() => setShowResidentTab(false)}
+            className={`px-8 py-3 rounded-lg font-semibold transition ${
+              !showResidentTab
+                ? 'bg-white text-gray-900'
                 : 'bg-gray-700 text-white hover:bg-gray-600'
             }`}
           >
-            {showClosed ? '✓' : '○'} Show Closed/Resolved Tickets
+            🎫 Tickets
+          </button>
+          <button
+            onClick={() => setShowResidentTab(true)}
+            className={`px-8 py-3 rounded-lg font-semibold transition ${
+              showResidentTab
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            👥 Residents
+          </button>
+        </div>
+
+        {!showResidentTab ? (
+          <div>
+        {/* Filter Buttons */}
+        <div className="flex flex-wrap justify-center gap-4 mb-8">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-6 py-2 rounded-lg font-semibold transition ${
+              filter === 'all'
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            All Tickets
+            <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
+              {tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length}
+            </span>
+          </button>
+          <button
+            onClick={() => setFilter('open')}
+            className={`px-6 py-2 rounded-lg font-semibold transition ${
+              filter === 'open'
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            OPEN
+            <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
+              {tickets.filter(t => t.status === 'open').length}
+            </span>
+          </button>
+          <button
+            onClick={() => setFilter('in-progress')}
+            className={`px-6 py-2 rounded-lg font-semibold transition ${
+              filter === 'in-progress'
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            IN PROGRESS
+            <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
+              {tickets.filter(t => t.status === 'in-progress').length}
+            </span>
+          </button>
+          <button
+            onClick={() => setFilter('closed')}
+            className={`px-6 py-2 rounded-lg font-semibold transition ${
+              filter === 'closed'
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            CLOSED
             <span className="ml-2 bg-gray-900 text-white px-2 py-0.5 rounded-full text-xs">
               {tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length}
             </span>
@@ -545,9 +703,9 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
           </div>
           <div className="bg-green-100 rounded-lg p-6 border-2 border-green-300">
             <div className="text-3xl font-bold text-green-900">
-              {tickets.filter(t => t.status === 'closed').length}
+              {tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length}
             </div>
-            <div className="text-green-700 font-semibold mt-1">Resolved</div>
+            <div className="text-green-700 font-semibold mt-1">Closed</div>
           </div>
           <div className="bg-red-100 rounded-lg p-6 border-2 border-red-300">
             <div className="text-3xl font-bold text-red-900">
@@ -698,6 +856,152 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        </div>
+        ) : (
+          /* Resident Management Section */
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-bold">Resident Management</h3>
+                <p className="text-gray-300 mt-2">Manage approved residents who can access the portal</p>
+              </div>
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="bg-white text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100 transition font-semibold"
+              >
+                {showAddForm ? 'Cancel' : '+ Add Resident'}
+              </button>
+            </div>
+
+            {showAddForm && (
+              <div className="bg-white rounded-xl shadow-lg p-6 text-gray-900">
+                <h4 className="text-xl font-bold mb-4">Add New Resident</h4>
+                <form onSubmit={handleAddResident} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={newResident.email}
+                      onChange={(e) => setNewResident({ ...newResident, email: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="resident@email.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newResident.name}
+                      onChange={(e) => setNewResident({ ...newResident, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                    <select
+                      value={newResident.buildingId}
+                      onChange={(e) => setNewResident({ ...newResident, buildingId: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    >
+                      <option value="">Select Building</option>
+                      {buildings.map((building) => (
+                        <option key={building.id} value={building.id}>
+                          {building.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label>
+                    <input
+                      type="text"
+                      value={newResident.unitNumber}
+                      onChange={(e) => setNewResident({ ...newResident, unitNumber: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="101"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={newResident.phoneNumber}
+                      onChange={(e) => setNewResident({ ...newResident, phoneNumber: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="+357 99 123456"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <button
+                      type="submit"
+                      className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+                    >
+                      Add Resident
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden text-gray-900">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-100 border-b-2 border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Phone</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {residents.map((resident) => (
+                      <tr key={resident.id} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 text-sm text-gray-900 font-medium">{resident.name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{resident.email}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{resident.unitNumber || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{resident.phoneNumber || 'N/A'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            resident.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {resident.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleDeleteResident(resident.id)}
+                            className="text-red-600 hover:text-red-800 font-semibold text-sm"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {residents.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <p className="text-lg">No residents added yet</p>
+                </div>
+              )}
             </div>
           </div>
         )}

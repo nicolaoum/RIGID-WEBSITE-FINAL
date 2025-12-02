@@ -76,6 +76,24 @@ export interface User {
   groups?: string[];
 }
 
+export interface Resident {
+  id: string;
+  email: string;
+  name: string;
+  unitNumber?: string;
+  buildingId?: string;
+  phoneNumber?: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResidentCheck {
+  isResident: boolean;
+  isStaff?: boolean;
+  residentInfo?: Resident;
+}
+
 /**
  * Generic API request wrapper
  */
@@ -180,4 +198,37 @@ export const postTicket = async (ticket: Ticket): Promise<{ success: boolean; ti
  */
 export const getNotices = async (): Promise<Notice[]> => {
   return apiRequest<Notice[]>('/notices');
+};
+
+/**
+ * Check if current user is an approved resident
+ */
+export const checkResident = async (): Promise<ResidentCheck> => {
+  return apiRequest<ResidentCheck>('/check-resident');
+};
+
+/**
+ * Get all residents (admin/staff only)
+ */
+export const getResidents = async (): Promise<Resident[]> => {
+  return apiRequest<Resident[]>('/residents');
+};
+
+/**
+ * Add a new resident (admin only)
+ */
+export const addResident = async (resident: Partial<Resident>): Promise<Resident> => {
+  return apiRequest('/residents', {
+    method: 'POST',
+    body: JSON.stringify(resident),
+  });
+};
+
+/**
+ * Delete a resident (admin only)
+ */
+export const deleteResident = async (residentId: string): Promise<{ success: boolean }> => {
+  return apiRequest(`/residents/${residentId}`, {
+    method: 'DELETE',
+  });
 };

@@ -5,6 +5,8 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -80,6 +82,21 @@ export class RigidInfraStack extends cdk.Stack {
       pointInTimeRecovery: true,
     });
 
+    // Residents Table
+    const residentsTable = new dynamodb.Table(this, 'ResidentsTable', {
+      tableName: 'rigid-residents',
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+    });
+
+    // Add GSI for querying residents by email
+    residentsTable.addGlobalSecondaryIndex({
+      indexName: 'email-index',
+      partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
+    });
+
     // ========================================
     // S3 Bucket for Images
     // ========================================
@@ -118,6 +135,7 @@ export class RigidInfraStack extends cdk.Stack {
       UNITS_TABLE: unitsTable.tableName,
       TICKETS_TABLE: ticketsTable.tableName,
       NOTICES_TABLE: noticesTable.tableName,
+      RESIDENTS_TABLE: residentsTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       NODE_ENV: 'production',
     };
@@ -259,6 +277,73 @@ export class RigidInfraStack extends cdk.Stack {
     imagesBucket.grantPut(getUploadUrlLambda);
     imagesBucket.grantPutAcl(getUploadUrlLambda);
 
+    // GET /residents (admin/staff only)
+    const getResidentsLambda = new lambda.Function(this, 'GetResidentsFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'getResidents.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadData(getResidentsLambda);
+
+    // POST /residents (admin only)
+    const addResidentLambda = new lambda.Function(this, 'AddResidentFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'addResident.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadWriteData(addResidentLambda);
+
+    // DELETE /residents/{id} (admin only)
+    const deleteResidentLambda = new lambda.Function(this, 'DeleteResidentFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'deleteResident.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadWriteData(deleteResidentLambda);
+
+    // GET /check-resident (authenticated)
+    const checkResidentLambda = new lambda.Function(this, 'CheckResidentFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'checkResident.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadData(checkResidentLambda);
+
+    // Cleanup closed tickets Lambda (scheduled)
+    const cleanupClosedTicketsLambda = new lambda.Function(this, 'CleanupClosedTicketsFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'cleanupClosedTickets.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+    ticketsTable.grantReadWriteData(cleanupClosedTicketsLambda);
+
+    // EventBridge rule to run cleanup every 30 days
+    const cleanupRule = new events.Rule(this, 'CleanupClosedTicketsRule', {
+      schedule: events.Schedule.rate(cdk.Duration.days(30)),
+      description: 'Cleanup of closed tickets older than 60 days (runs every 30 days)',
+    });
+    cleanupRule.addTarget(new targets.LambdaFunction(cleanupClosedTicketsLambda));
+
     // ========================================
     // API Gateway
     // ========================================
@@ -347,6 +432,30 @@ export class RigidInfraStack extends cdk.Stack {
 
     const noticesResource = api.root.addResource('notices');
     noticesResource.addMethod('GET', new apigateway.LambdaIntegration(getNoticesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // GET /check-resident (authenticated)
+    const checkResidentResource = api.root.addResource('check-resident');
+    checkResidentResource.addMethod('GET', new apigateway.LambdaIntegration(checkResidentLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Residents endpoints (admin/staff only)
+    const residentsResource = api.root.addResource('residents');
+    residentsResource.addMethod('GET', new apigateway.LambdaIntegration(getResidentsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    residentsResource.addMethod('POST', new apigateway.LambdaIntegration(addResidentLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const residentResource = residentsResource.addResource('{id}');
+    residentResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteResidentLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
