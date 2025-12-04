@@ -5,7 +5,8 @@
 
 import { getAccessToken } from './auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Route all API calls through the local Next.js proxy to avoid browser CORS issues.
+const API_URL = '/api/proxy';
 
 export interface Unit {
   id: string;
