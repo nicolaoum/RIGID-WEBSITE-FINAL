@@ -209,6 +209,16 @@ export const checkResident = async (): Promise<ResidentCheck> => {
 };
 
 /**
+ * Self-register as a resident (requires authentication)
+ */
+export const registerResident = async (registration: { email: string; unitNumber: string; buildingId?: string }): Promise<{ success: boolean; message: string }> => {
+  return apiRequest('/residents/register', {
+    method: 'POST',
+    body: JSON.stringify(registration),
+  });
+};
+
+/**
  * Get all residents (admin/staff only)
  */
 export const getResidents = async (): Promise<Resident[]> => {
@@ -216,7 +226,7 @@ export const getResidents = async (): Promise<Resident[]> => {
 };
 
 /**
- * Add a new resident (admin only)
+ * Add a new resident or authorize pending resident (admin/staff only)
  */
 export const addResident = async (resident: Partial<Resident>): Promise<Resident> => {
   return apiRequest('/residents', {
@@ -233,3 +243,4 @@ export const deleteResident = async (residentId: string): Promise<{ success: boo
     method: 'DELETE',
   });
 };
+

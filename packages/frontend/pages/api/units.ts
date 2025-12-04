@@ -13,7 +13,7 @@ let units = [
     rent: 1200,
     available: true,
     availableDate: '2025-01-15',
-    imageUrl: null,
+    imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'unit-002',
@@ -26,7 +26,7 @@ let units = [
     rent: 1500,
     available: true,
     availableDate: '2025-02-01',
-    imageUrl: null,
+    imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'unit-003',
@@ -39,7 +39,7 @@ let units = [
     rent: 1100,
     available: true,
     availableDate: '2025-01-20',
-    imageUrl: null,
+    imageUrl: 'https://images.unsplash.com/photo-1501183638710-841dd1904471?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'unit-004',
@@ -52,7 +52,7 @@ let units = [
     rent: 1600,
     available: true,
     availableDate: '2025-01-10',
-    imageUrl: null,
+    imageUrl: 'https://images.unsplash.com/photo-1505692069463-9e81c8f7a2f3?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'unit-005',
@@ -65,7 +65,7 @@ let units = [
     rent: 1300,
     available: true,
     availableDate: '2025-02-15',
-    imageUrl: null,
+    imageUrl: 'https://images.unsplash.com/photo-1501183638710-841dd1904471?auto=format&fit=crop&w=800&q=80',
   },
 ];
 

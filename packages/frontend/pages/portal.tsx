@@ -879,7 +879,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             {showAddForm && (
               <div className="bg-white rounded-xl shadow-lg p-6 text-gray-900">
                 <h4 className="text-xl font-bold mb-4">Add New Resident</h4>
-                <form onSubmit={handleAddResident} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleAddResident} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                     <input
@@ -888,24 +888,24 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                       value={newResident.email}
                       onChange={(e) => setNewResident({ ...newResident, email: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      placeholder="resident@email.com"
+                      placeholder="resident@example.com"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number *</label>
                     <input
                       type="text"
                       required
-                      value={newResident.name}
-                      onChange={(e) => setNewResident({ ...newResident, name: e.target.value })}
+                      value={newResident.unitNumber}
+                      onChange={(e) => setNewResident({ ...newResident, unitNumber: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      placeholder="John Doe"
+                      placeholder="e.g., 101, 2A"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Building (Optional)</label>
                     <select
                       value={newResident.buildingId}
                       onChange={(e) => setNewResident({ ...newResident, buildingId: e.target.value })}
@@ -920,36 +920,12 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label>
-                    <input
-                      type="text"
-                      value={newResident.unitNumber}
-                      onChange={(e) => setNewResident({ ...newResident, unitNumber: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      placeholder="101"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      value={newResident.phoneNumber}
-                      onChange={(e) => setNewResident({ ...newResident, phoneNumber: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      placeholder="+357 99 123456"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <button
-                      type="submit"
-                      className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-                    >
-                      Add Resident
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+                  >
+                    Add Resident
+                  </button>
                 </form>
               </div>
             )}

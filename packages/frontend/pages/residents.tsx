@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getResidents, addResident, deleteResident, getBuildings, Resident, Building } from '../lib/api';
+import { addResident, getBuildings, Building } from '../lib/api';
 
 export default function Residents() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [residents, setResidents] = useState<Resident[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newResident, setNewResident] = useState({
+  const [showAuthForm, setShowAuthForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [newAuthorization, setNewAuthorization] = useState({
     email: '',
-    name: '',
     unitNumber: '',
     buildingId: '',
-    phoneNumber: '',
   });
 
   useEffect(() => {
@@ -27,15 +26,11 @@ export default function Residents() {
       const currentUser = getCurrentUser();
       setUser(currentUser);
 
-      const userIsAdmin = currentUser?.groups?.includes('admin') || false;
+      const userIsAdmin = currentUser?.groups?.includes('admin') || currentUser?.groups?.includes('staff') || false;
       setIsAdmin(userIsAdmin);
 
       if (userIsAdmin) {
-        const [residentsData, buildingsData] = await Promise.all([
-          getResidents(),
-          getBuildings(),
-        ]);
-        setResidents(residentsData);
+        const buildingsData = await getBuildings();
         setBuildings(buildingsData);
       }
     } catch (error) {
@@ -45,38 +40,26 @@ export default function Residents() {
     }
   };
 
-  const handleAddResident = async (e: React.FormEvent) => {
+  const handleAuthorizeResident = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    setMessage('');
+
     try {
-      await addResident(newResident);
-      setShowAddForm(false);
-      setNewResident({
+      await addResident(newAuthorization);
+      setShowAuthForm(false);
+      setNewAuthorization({
         email: '',
-        name: '',
         unitNumber: '',
         buildingId: '',
-        phoneNumber: '',
       });
-      await loadData();
-      alert('Resident added successfully!');
-    } catch (error) {
-      console.error('Error adding resident:', error);
-      alert('Failed to add resident');
-    }
-  };
-
-  const handleDeleteResident = async (residentId: string) => {
-    if (!confirm('Are you sure you want to remove this resident?')) {
-      return;
-    }
-
-    try {
-      await deleteResident(residentId);
-      await loadData();
-      alert('Resident removed successfully');
-    } catch (error) {
-      console.error('Error deleting resident:', error);
-      alert('Failed to remove resident');
+      setMessage('✓ Resident authorized successfully! They now have portal access.');
+      setTimeout(() => setMessage(''), 5000);
+    } catch (error: any) {
+      console.error('Error authorizing resident:', error);
+      setMessage(`✗ Error: ${error.message || 'Failed to authorize resident'}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -95,7 +78,7 @@ export default function Residents() {
         <div className="max-w-4xl mx-auto px-4 py-16">
           <div className="bg-white rounded-xl shadow-lg p-8 text-center">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h2>
-            <p className="text-gray-600 mb-8">This page is only accessible to administrators</p>
+            <p className="text-gray-600 mb-8">This page is only accessible to administrators and staff</p>
             <Link
               href="/"
               className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
@@ -112,54 +95,59 @@ export default function Residents() {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Resident Management</h1>
-            <p className="text-gray-600 mt-2">Manage approved residents who can access the portal</p>
+            <h1 className="text-3xl font-bold text-gray-900">Authorize Residents</h1>
+            <p className="text-gray-600 mt-2">Grant portal access by adding users to the resident group</p>
           </div>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => setShowAuthForm(!showAuthForm)}
             className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
           >
-            {showAddForm ? 'Cancel' : '+ Add Resident'}
+            {showAuthForm ? 'Cancel' : '+ Authorize Resident'}
           </button>
         </div>
 
-        {showAddForm && (
+        {showAuthForm && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Add New Resident</h2>
-            <form onSubmit={handleAddResident} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Authorize New Resident</h2>
+            <p className="text-gray-600 mb-6">Enter the resident's email to grant them portal access. They must have created an account first.</p>
+            
+            <form onSubmit={handleAuthorizeResident} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
                 <input
                   type="email"
                   required
-                  value={newResident.email}
-                  onChange={(e) => setNewResident({ ...newResident, email: e.target.value })}
+                  value={newAuthorization.email}
+                  onChange={(e) => setNewAuthorization({ ...newAuthorization, email: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="resident@email.com"
+                  placeholder="resident@example.com"
+                  disabled={submitting}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number *</label>
                 <input
                   type="text"
                   required
-                  value={newResident.name}
-                  onChange={(e) => setNewResident({ ...newResident, name: e.target.value })}
+                  value={newAuthorization.unitNumber}
+                  onChange={(e) => setNewAuthorization({ ...newAuthorization, unitNumber: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="John Doe"
+                  placeholder="e.g., 101, 2A"
+                  disabled={submitting}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Building (Optional)</label>
                 <select
-                  value={newResident.buildingId}
-                  onChange={(e) => setNewResident({ ...newResident, buildingId: e.target.value })}
+                  value={newAuthorization.buildingId}
+                  onChange={(e) => setNewAuthorization({ ...newAuthorization, buildingId: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  disabled={submitting}
                 >
                   <option value="">Select Building</option>
                   {buildings.map((building) => (
@@ -170,88 +158,32 @@ export default function Residents() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label>
-                <input
-                  type="text"
-                  value={newResident.unitNumber}
-                  onChange={(e) => setNewResident({ ...newResident, unitNumber: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="101"
-                />
-              </div>
+              {message && (
+                <div className={`p-4 rounded-lg ${message.startsWith('✓') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {message}
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={newResident.phoneNumber}
-                  onChange={(e) => setNewResident({ ...newResident, phoneNumber: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="+357 99 123456"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-                >
-                  Add Resident
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Authorizing...' : 'Authorize Resident'}
+              </button>
             </form>
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Phone</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {residents.map((resident) => (
-                  <tr key={resident.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">{resident.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.unitNumber || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.phoneNumber || 'N/A'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        resident.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {resident.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleDeleteResident(resident.id)}
-                        className="text-red-600 hover:text-red-800 font-semibold text-sm"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {residents.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <p className="text-lg">No residents added yet</p>
-            </div>
-          )}
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+          <h3 className="font-semibold text-blue-900 mb-3">How to authorize a resident:</h3>
+          <ol className="text-sm text-blue-800 space-y-2">
+            <li>1. Ensure the resident has already created an account on the website</li>
+            <li>2. Enter their email address, unit number, and building (optional)</li>
+            <li>3. Click "Authorize Resident"</li>
+            <li>4. They will now be added to the resident group and have full portal access</li>
+            <li>5. They can submit tickets, view notices, and more!</li>
+          </ol>
         </div>
       </div>
     </div>

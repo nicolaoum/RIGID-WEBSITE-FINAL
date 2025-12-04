@@ -1,39 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Mock tickets data
-const mockTickets = [
-  {
-    id: '1',
-    title: 'Broken AC Unit',
-    description: 'The air conditioning in unit 2A is not working properly.',
-    status: 'open',
-    priority: 'high',
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    building: 'RIGID 1 Pierias',
-    unit: '2A',
-  },
-  {
-    id: '2',
-    title: 'Water Leak',
-    description: 'Small leak under kitchen sink.',
-    status: 'in-progress',
-    priority: 'medium',
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    building: 'RIGID 2 Stadiou',
-    unit: '1B',
-  },
-  {
-    id: '3',
-    title: 'Parking Gate',
-    description: 'Parking gate remote not working.',
-    status: 'closed',
-    priority: 'low',
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    building: 'RIGID 3 Ektoros',
-    unit: '3C',
-  },
-];
-
+/**
+ * API route for tickets - proxies requests to AWS Lambda backend
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -44,29 +13,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).end();
   }
 
-  if (req.method === 'GET') {
-    // Return all tickets
-    return res.status(200).json(mockTickets);
+  try {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL;
+    if (!apiBaseUrl) {
+      return res.status(500).json({ error: 'API base URL not configured' });
+    }
+
+    // Forward the request to the backend
+    const response = await fetch(`${apiBaseUrl}/tickets`, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(req.headers.authorization && { 'Authorization': req.headers.authorization }),
+      },
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+    });
+
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error proxying tickets request:', error);
+    res.status(500).json({ error: 'Failed to fetch tickets', detail: error?.message });
   }
-
-  if (req.method === 'POST') {
-    // Create new ticket
-    const { title, description, priority, building, unit } = req.body;
-
-    const newTicket = {
-      id: String(mockTickets.length + 1),
-      title,
-      description,
-      status: 'open',
-      priority: priority || 'medium',
-      createdAt: new Date().toISOString(),
-      building,
-      unit,
-    };
-
-    mockTickets.unshift(newTicket);
-    return res.status(201).json(newTicket);
-  }
-
-  return res.status(405).json({ error: 'Method not allowed' });
 }

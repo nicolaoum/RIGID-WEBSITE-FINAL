@@ -137,6 +137,7 @@ export class RigidInfraStack extends cdk.Stack {
       NOTICES_TABLE: noticesTable.tableName,
       RESIDENTS_TABLE: residentsTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
+      COGNITO_USER_POOL_ID: userPool.userPoolId,
       NODE_ENV: 'production',
     };
 
@@ -301,6 +302,19 @@ export class RigidInfraStack extends cdk.Stack {
     });
     residentsTable.grantReadWriteData(addResidentLambda);
 
+    // Grant addResident Lambda permission to manage Cognito groups
+    addResidentLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:AdminRemoveUserFromGroup',
+          'cognito-idp:AdminGetUser',
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
     // DELETE /residents/{id} (admin only)
     const deleteResidentLambda = new lambda.Function(this, 'DeleteResidentFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -324,6 +338,18 @@ export class RigidInfraStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
     residentsTable.grantReadData(checkResidentLambda);
+
+    // POST /residents/register (self-registration - authenticated)
+    const registerResidentLambda = new lambda.Function(this, 'RegisterResidentFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'registerResident.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadWriteData(registerResidentLambda);
 
     // Cleanup closed tickets Lambda (scheduled)
     const cleanupClosedTicketsLambda = new lambda.Function(this, 'CleanupClosedTicketsFunction', {
@@ -450,6 +476,13 @@ export class RigidInfraStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
     residentsResource.addMethod('POST', new apigateway.LambdaIntegration(addResidentLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // POST /residents/register (self-registration - authenticated)
+    const registerResource = residentsResource.addResource('register');
+    registerResource.addMethod('POST', new apigateway.LambdaIntegration(registerResidentLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

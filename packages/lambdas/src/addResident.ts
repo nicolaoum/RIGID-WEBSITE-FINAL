@@ -1,12 +1,9 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+const cognitoClient = new CognitoIdentityProvider({});
 
 export const handler = async (event: any) => {
-  console.log('Add Resident Request:', JSON.stringify(event, null, 2));
+  console.log('Authorize Resident Request:', JSON.stringify(event, null, 2));
 
   try {
     // Get user info from Cognito authorizer
@@ -32,7 +29,7 @@ export const handler = async (event: any) => {
       groups = groupsClaim;
     }
 
-    const isAdmin = groups.includes('admin');
+    const isAdmin = groups.includes('admin') || groups.includes('staff');
     
     if (!isAdmin) {
       return {
@@ -47,51 +44,72 @@ export const handler = async (event: any) => {
 
     // Parse request body
     const body = JSON.parse(event.body || '{}');
-    const { email, name, unitNumber, buildingId, phoneNumber } = body;
+    const { email, unitNumber, buildingId } = body;
 
     // Validate required fields
-    if (!email || !name) {
+    if (!email || !unitNumber) {
       return {
         statusCode: 400,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Headers': '*',
         },
-        body: JSON.stringify({ message: 'Email and name are required' }),
+        body: JSON.stringify({ message: 'Email and unit number are required' }),
       };
     }
 
-    // Create resident record
-    const resident = {
-      id: uuidv4(),
-      email: email.toLowerCase(),
-      name,
-      unitNumber: unitNumber || null,
-      buildingId: buildingId || null,
-      phoneNumber: phoneNumber || null,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const emailLower = email.toLowerCase();
+    const userPoolId = process.env.COGNITO_USER_POOL_ID;
 
-    // Save to DynamoDB
-    await docClient.send(
-      new PutCommand({
-        TableName: process.env.RESIDENTS_TABLE,
-        Item: resident,
-      })
-    );
+    if (!userPoolId) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+        },
+        body: JSON.stringify({ message: 'User pool ID not configured' }),
+      };
+    }
+
+    // Add user to 'resident' group in Cognito
+    try {
+      await cognitoClient.adminAddUserToGroup({
+        UserPoolId: userPoolId,
+        Username: emailLower,
+        GroupName: 'resident',
+      });
+
+      console.log(`User ${emailLower} added to resident group`);
+    } catch (error: any) {
+      if (error.name === 'UserNotFoundException') {
+        return {
+          statusCode: 404,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': '*',
+          },
+          body: JSON.stringify({ message: 'User not found in Cognito. Please ensure the user has created an account.' }),
+        };
+      }
+      throw error;
+    }
 
     return {
-      statusCode: 201,
+      statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': '*',
       },
-      body: JSON.stringify(resident),
+      body: JSON.stringify({
+        message: 'Resident authorized successfully',
+        email: emailLower,
+        unitNumber: unitNumber,
+        buildingId: buildingId || null,
+      }),
     };
   } catch (error) {
-    console.error('Error adding resident:', error);
+    console.error('Error authorizing resident:', error);
     return {
       statusCode: 500,
       headers: {
@@ -99,7 +117,7 @@ export const handler = async (event: any) => {
         'Access-Control-Allow-Headers': '*',
       },
       body: JSON.stringify({
-        message: 'Failed to add resident',
+        message: 'Failed to authorize resident',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
     };

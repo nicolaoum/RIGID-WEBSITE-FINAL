@@ -21,7 +21,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       zip: '',
       totalUnits: 12,
       availableUnits: 2,
-      imageUrl: null,
+      imageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
       amenities: ['Elevator', 'Parking', 'Storage'],
     },
     {
@@ -33,7 +33,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       zip: '',
       totalUnits: 8,
       availableUnits: 1,
-      imageUrl: null,
+      imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80',
       amenities: ['Elevator', 'Parking', 'Balconies'],
     },
     {
@@ -45,7 +45,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       zip: '',
       totalUnits: 10,
       availableUnits: 2,
-      imageUrl: null,
+      imageUrl: 'https://images.unsplash.com/photo-1501183638710-841dd1904471?auto=format&fit=crop&w=1200&q=80',
       amenities: ['Elevator', 'Parking', 'Storage', 'Modern Design'],
     },
   ];
