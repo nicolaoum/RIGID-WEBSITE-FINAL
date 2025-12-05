@@ -34,7 +34,7 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Check if user is admin or staff (they always have access)
+    // Check user's Cognito groups
     const groupsClaim = claims['cognito:groups'];
     let groups: string[] = [];
     
@@ -44,6 +44,7 @@ export const handler = async (event: any) => {
       groups = groupsClaim;
     }
 
+    // Check if user is admin or staff (they always have access)
     if (groups.includes('admin') || groups.includes('staff')) {
       return {
         statusCode: 200,
@@ -55,20 +56,34 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Query residents table by email
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: process.env.RESIDENTS_TABLE,
-        IndexName: 'email-index',
-        KeyConditionExpression: 'email = :email',
-        ExpressionAttributeValues: {
-          ':email': userEmail,
-        },
-        Limit: 1,
-      })
-    );
+    // Check if user is in the resident group
+    const isResident = groups.includes('resident');
 
-    const isResident = (result.Items && result.Items.length > 0 && result.Items[0].status === 'active');
+    let residentInfo = null;
+    
+    // If user is a resident, try to fetch their info from DynamoDB
+    if (isResident) {
+      try {
+        const result = await docClient.send(
+          new QueryCommand({
+            TableName: process.env.RESIDENTS_TABLE,
+            IndexName: 'email-index',
+            KeyConditionExpression: 'email = :email',
+            ExpressionAttributeValues: {
+              ':email': userEmail,
+            },
+            Limit: 1,
+          })
+        );
+
+        if (result.Items && result.Items.length > 0) {
+          residentInfo = result.Items[0];
+        }
+      } catch (error) {
+        console.error('Error fetching resident info from DynamoDB:', error);
+        // Continue even if DynamoDB lookup fails
+      }
+    }
 
     return {
       statusCode: 200,
@@ -78,7 +93,7 @@ export const handler = async (event: any) => {
       },
       body: JSON.stringify({ 
         isResident,
-        residentInfo: isResident ? result.Items![0] : null
+        residentInfo,
       }),
     };
   } catch (error) {

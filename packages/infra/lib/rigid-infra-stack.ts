@@ -253,6 +253,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     ticketsTable.grantReadWriteData(updateTicketStatusLambda);
 
+    // DELETE /tickets/{ticketId} (resident or staff)
+    const deleteTicketLambda = new lambda.Function(this, 'DeleteTicketFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'deleteTicket.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    ticketsTable.grantReadWriteData(deleteTicketLambda);
+
     // GET /notices (authenticated)
     const getNoticesLambda = new lambda.Function(this, 'GetNoticesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -290,6 +302,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     residentsTable.grantReadData(getResidentsLambda);
 
+    // Grant getResidents Lambda permission to query Cognito groups
+    getResidentsLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:ListUsersInGroup',
+          'cognito-idp:AdminGetUser',
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
     // POST /residents (admin only)
     const addResidentLambda = new lambda.Function(this, 'AddResidentFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -310,6 +334,7 @@ export class RigidInfraStack extends cdk.Stack {
           'cognito-idp:AdminAddUserToGroup',
           'cognito-idp:AdminRemoveUserFromGroup',
           'cognito-idp:AdminGetUser',
+          'cognito-idp:AdminUpdateUserAttributes',
         ],
         resources: [userPool.userPoolArn],
       })
@@ -452,6 +477,12 @@ export class RigidInfraStack extends cdk.Stack {
     const ticketIdResource = ticketsResource.addResource('{ticketId}');
     const ticketStatusResource = ticketIdResource.addResource('status');
     ticketStatusResource.addMethod('PUT', new apigateway.LambdaIntegration(updateTicketStatusLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // DELETE /tickets/{ticketId} (resident or staff)
+    ticketIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteTicketLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

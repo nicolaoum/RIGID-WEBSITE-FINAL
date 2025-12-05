@@ -1,8 +1,6 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { CognitoIdentityProviderClient, ListUsersInGroupCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+const cognito = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 export const handler = async (event: any) => {
   console.log('Get Residents Request:', JSON.stringify(event, null, 2));
@@ -44,12 +42,61 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Scan all residents
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: process.env.RESIDENTS_TABLE,
+    const userPoolId = process.env.COGNITO_USER_POOL_ID;
+    if (!userPoolId) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+        },
+        body: JSON.stringify({ message: 'User pool not configured' }),
+      };
+    }
+
+    // Get all users in the resident group from Cognito
+    const residentsResponse = await cognito.send(
+      new ListUsersInGroupCommand({
+        UserPoolId: userPoolId,
+        GroupName: 'resident',
       })
     );
+
+    // Fetch full user details for each resident
+    const residents = await Promise.all(
+      (residentsResponse.Users || []).map(async (user) => {
+        try {
+          const userDetails = await cognito.send(
+            new AdminGetUserCommand({
+              UserPoolId: userPoolId,
+              Username: user.Username!,
+            })
+          );
+
+          // Extract attributes
+          const attributes: any = {};
+          userDetails.UserAttributes?.forEach((attr) => {
+            attributes[attr.Name!] = attr.Value;
+          });
+
+          return {
+            username: user.Username,
+            email: attributes.email,
+            name: attributes.name,
+            phoneNumber: attributes.phone_number,
+            unitNumber: attributes['custom:apartmentNumber'],
+            status: userDetails.UserStatus,
+            createdAt: userDetails.UserCreateDate,
+          };
+        } catch (error) {
+          console.error(`Error fetching user ${user.Username}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Filter out null values
+    const validResidents = residents.filter((r) => r !== null);
 
     return {
       statusCode: 200,
@@ -57,7 +104,10 @@ export const handler = async (event: any) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': '*',
       },
-      body: JSON.stringify(result.Items || []),
+      body: JSON.stringify({
+        residents: validResidents,
+        count: validResidents.length,
+      }),
     };
   } catch (error) {
     console.error('Error fetching residents:', error);

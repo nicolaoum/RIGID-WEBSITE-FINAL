@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { addResident, getBuildings, Building } from '../lib/api';
+import { addResident, getBuildings, Building, getResidents, Resident, deleteResident } from '../lib/api';
 
 export default function Residents() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [newAuthorization, setNewAuthorization] = useState({
     email: '',
     unitNumber: '',
@@ -32,6 +34,9 @@ export default function Residents() {
       if (userIsAdmin) {
         const buildingsData = await getBuildings();
         setBuildings(buildingsData);
+        
+        const residentsData = await getResidents();
+        setResidents(residentsData);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -54,12 +59,38 @@ export default function Residents() {
         buildingId: '',
       });
       setMessage('✓ Resident authorized successfully! They now have portal access.');
+      
+      // Reload residents list
+      const residentsData = await getResidents();
+      setResidents(residentsData);
+      
       setTimeout(() => setMessage(''), 5000);
     } catch (error: any) {
       console.error('Error authorizing resident:', error);
       setMessage(`✗ Error: ${error.message || 'Failed to authorize resident'}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteResident = async (email: string) => {
+    if (!confirm(`Are you sure you want to remove ${email} from residents?`)) return;
+
+    setDeleting(email);
+    try {
+      await deleteResident(email);
+      setMessage(`✓ Resident ${email} removed successfully`);
+      
+      // Reload residents list
+      const residentsData = await getResidents();
+      setResidents(residentsData);
+      
+      setTimeout(() => setMessage(''), 5000);
+    } catch (error: any) {
+      console.error('Error removing resident:', error);
+      setMessage(`✗ Error: ${error.message || 'Failed to remove resident'}`);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -172,6 +203,54 @@ export default function Residents() {
                 {submitting ? 'Authorizing...' : 'Authorize Resident'}
               </button>
             </form>
+          </div>
+        )}
+
+        {residents.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Current Residents ({residents.length})</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">NAME</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">EMAIL</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">APARTMENT</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">PHONE</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">STATUS</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {residents.map((resident) => (
+                    <tr key={resident.email} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-gray-900">{resident.name || 'N/A'}</td>
+                      <td className="py-3 px-4 text-gray-700">{resident.email}</td>
+                      <td className="py-3 px-4 text-gray-700">{resident.apartmentNumber || 'N/A'}</td>
+                      <td className="py-3 px-4 text-gray-700">{resident.phoneNumber || 'N/A'}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          resident.status === 'CONFIRMED' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {resident.status || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => handleDeleteResident(resident.email!)}
+                          disabled={deleting === resident.email}
+                          className="text-red-600 hover:text-red-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                          {deleting === resident.email ? 'Removing...' : 'Remove'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

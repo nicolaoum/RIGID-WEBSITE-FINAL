@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, getBuildings, User, Ticket, Notice, Resident, Building } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, User, Ticket, Notice, Resident, Building } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -140,7 +140,7 @@ export default function Portal() {
       {isStaff ? (
         <StaffPortal tickets={tickets} />
       ) : (
-        <ResidentPortal user={user} tickets={tickets} notices={notices} onTicketSubmit={handleTicketSubmit} />
+        <ResidentPortal user={user} tickets={tickets} notices={notices} onTicketSubmit={handleTicketSubmit} onLoadUserData={loadUserData} />
       )}
     </div>
   );
@@ -218,21 +218,30 @@ function ResidentPortal({
   tickets,
   notices,
   onTicketSubmit,
+  onLoadUserData,
 }: {
   user: User | null;
   tickets: Ticket[];
   notices: Notice[];
   onTicketSubmit: (ticket: Ticket) => Promise<void>;
+  onLoadUserData: () => Promise<void>;
 }) {
   const [ticketForm, setTicketForm] = useState({
     subject: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     residentName: '',
-    unitNumber: '',
+    unitNumber: user?.['custom:apartmentNumber'] || '',
     phoneNumber: '',
     allowEntry: false,
   });
+
+  // Update unitNumber when user changes
+  useEffect(() => {
+    if (user?.['custom:apartmentNumber']) {
+      setTicketForm(prev => ({ ...prev, unitNumber: user['custom:apartmentNumber'] }));
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,14 +343,14 @@ function ResidentPortal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Apartment Number</label>
                 <input
                   type="text"
                   required
                   value={ticketForm.unitNumber}
-                  onChange={(e) => setTicketForm({ ...ticketForm, unitNumber: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="e.g., 101, 202, etc."
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  placeholder="Your apartment number"
                 />
               </div>
               <div>
@@ -382,26 +391,45 @@ function ResidentPortal({
           <h3 className="text-2xl font-semibold text-gray-900 mb-6">📋 Your Maintenance Requests</h3>
           <div className="space-y-4">
             {tickets.map((ticket) => (
-              <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg shadow">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-semibold text-gray-900">{ticket.subject}</h4>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      ticket.status === 'resolved'
-                        ? 'bg-green-100 text-green-800'
-                        : ticket.status === 'in-progress'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {ticket.status}
-                  </span>
+              <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg shadow flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-gray-900">{ticket.subject}</h4>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        ticket.status === 'resolved'
+                          ? 'bg-green-100 text-green-800'
+                          : ticket.status === 'in-progress'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {ticket.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">{ticket.description}</p>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Priority: {ticket.priority}</span>
+                    <span>{ticket.createdAt && new Date(ticket.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-700 mb-2">{ticket.description}</p>
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>Priority: {ticket.priority}</span>
-                  <span>{ticket.createdAt && new Date(ticket.createdAt).toLocaleDateString()}</span>
-                </div>
+                <button
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to delete this ticket?')) {
+                      try {
+                        await deleteTicket(ticket.id);
+                        await onLoadUserData();
+                        alert('Ticket deleted successfully');
+                      } catch (error) {
+                        console.error('Error deleting ticket:', error);
+                        alert('Failed to delete ticket');
+                      }
+                    }
+                  }}
+                  className="ml-4 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition whitespace-nowrap"
+                >
+                  Delete
+                </button>
               </div>
             ))}
             {tickets.length === 0 && (
@@ -938,7 +966,6 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Phone</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -949,7 +976,6 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                         <td className="px-6 py-4 text-sm text-gray-900 font-medium">{resident.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{resident.email}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{resident.unitNumber || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{resident.phoneNumber || 'N/A'}</td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             resident.status === 'active'

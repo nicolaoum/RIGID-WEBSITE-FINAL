@@ -81,6 +81,32 @@ export const handler = async (event: any) => {
       });
 
       console.log(`User ${emailLower} added to resident group`);
+
+      // Get the user details to retrieve their actual username
+      const userDetails = await cognitoClient.adminGetUser({
+        UserPoolId: userPoolId,
+        Username: emailLower,
+      });
+
+      const username = userDetails.Username || emailLower;
+
+      // Update user attributes to include name and apartment number
+      await cognitoClient.adminUpdateUserAttributes({
+        UserPoolId: userPoolId,
+        Username: emailLower,
+        UserAttributes: [
+          {
+            Name: 'name',
+            Value: username, // Use the actual username
+          },
+          {
+            Name: 'custom:apartmentNumber',
+            Value: unitNumber,
+          },
+        ],
+      });
+
+      console.log(`User ${emailLower} updated with name and apartment number`);
     } catch (error: any) {
       if (error.name === 'UserNotFoundException') {
         return {

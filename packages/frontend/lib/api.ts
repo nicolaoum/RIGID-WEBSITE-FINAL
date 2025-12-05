@@ -222,7 +222,8 @@ export const registerResident = async (registration: { email: string; unitNumber
  * Get all residents (admin/staff only)
  */
 export const getResidents = async (): Promise<Resident[]> => {
-  return apiRequest<Resident[]>('/residents');
+  const response = await apiRequest<{ residents: Resident[] }>('/residents');
+  return response.residents || [];
 };
 
 /**
@@ -244,3 +245,11 @@ export const deleteResident = async (residentId: string): Promise<{ success: boo
   });
 };
 
+/**
+ * Delete a ticket (resident can delete own, staff/admin can delete any)
+ */
+export const deleteTicket = async (ticketId: string): Promise<{ success: boolean; message: string }> => {
+  return apiRequest(`/tickets/${ticketId}`, {
+    method: 'DELETE',
+  });
+};

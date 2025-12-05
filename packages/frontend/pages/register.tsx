@@ -24,6 +24,11 @@ export default function Register() {
       setFormData(prev => ({ ...prev, email: currentUser.email }));
     }
 
+    // Auto-populate apartment number from user profile
+    if (currentUser?.['custom:apartmentNumber']) {
+      setFormData(prev => ({ ...prev, unitNumber: currentUser['custom:apartmentNumber'] }));
+    }
+
     const loadBuildings = async () => {
       try {
         const buildingsData = await getBuildings();
@@ -136,16 +141,16 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Unit Number *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Apartment Number *</label>
                 <input
                   type="text"
                   required
                   value={formData.unitNumber}
-                  onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-gray-900 focus:outline-none transition"
-                  placeholder="e.g., 101, 2A, Unit 5"
+                  readOnly
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  placeholder="Your apartment number"
                 />
-                <p className="text-xs text-gray-500 mt-1">Your apartment/unit number</p>
+                <p className="text-xs text-gray-500 mt-1">Your apartment number (automatically detected)</p>
               </div>
 
               <div>
