@@ -20,6 +20,9 @@ export interface User {
   name?: string;
   sub: string;
   groups?: string[];
+  'custom:apartmentNumber'?: string;
+  'custom:buildingId'?: string;
+  phone_number?: string;
 }
 
 export interface TokenResponse {
@@ -37,7 +40,7 @@ export const login = () => {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',
-    scope: 'openid email',
+    scope: 'openid email profile phone',
     redirect_uri: REDIRECT_URI,
   });
 
@@ -88,6 +91,46 @@ export const exchangeCodeForTokens = async (code: string): Promise<TokenResponse
   }
 
   return response.json();
+};
+
+/**
+ * Refresh tokens using refresh token
+ */
+export const refreshTokens = async (): Promise<TokenResponse | null> => {
+  try {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) {
+      console.log('No refresh token available');
+      return null;
+    }
+
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: CLIENT_ID,
+      refresh_token: refreshToken,
+    });
+
+    const response = await fetch(COGNITO_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      console.error('Token refresh failed:', response.status);
+      return null;
+    }
+
+    const tokens = await response.json();
+    saveTokens(tokens);
+    console.log('Tokens refreshed successfully');
+    return tokens;
+  } catch (error) {
+    console.error('Error refreshing tokens:', error);
+    return null;
+  }
 };
 
 /**
@@ -210,9 +253,52 @@ const parseJWT = (token: string): User | null => {
       name: payload.name,
       sub: payload.sub,
       groups: payload['cognito:groups'],
+      'custom:apartmentNumber': payload['custom:apartmentNumber'],
+      'custom:buildingId': payload['custom:buildingId'],
+      phone_number: payload.phone_number,
     };
   } catch (error) {
     console.error('Failed to parse JWT:', error);
     return null;
   }
 };
+
+/**
+ * Fetch user info from Cognito userinfo endpoint to get custom attributes
+ */
+export const fetchUserInfoFromCognito = async (): Promise<User | null> => {
+  try {
+    const accessToken = getAccessToken();
+    if (!accessToken) return null;
+
+    const userInfoUrl = `${process.env.NEXT_PUBLIC_COGNITO_DOMAIN}/oauth2/userinfo`;
+    const response = await fetch(userInfoUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch user info:', response.status);
+      return null;
+    }
+
+    const userInfo = await response.json();
+    console.log('User info from Cognito:', userInfo);
+    
+    return {
+      email: userInfo.email,
+      name: userInfo.name,
+      sub: userInfo.sub,
+      groups: userInfo['cognito:groups'],
+      'custom:apartmentNumber': userInfo['custom:apartmentNumber'],
+      'custom:buildingId': userInfo['custom:buildingId'],
+      phone_number: userInfo.phone_number,
+    };
+  } catch (error) {
+    console.error('Error fetching user info from Cognito:', error);
+    return null;
+  }
+};
+

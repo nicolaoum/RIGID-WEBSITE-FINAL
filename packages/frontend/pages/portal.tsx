@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, User, Ticket, Notice, Resident, Building } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, User, Ticket, Notice, Resident, Building } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -11,16 +11,20 @@ export default function Portal() {
   const [isStaff, setIsStaff] = useState(false);
   const [isResident, setIsResident] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [residentInfo, setResidentInfo] = useState<Resident | null>(null);
 
   useEffect(() => {
-    loadUserData();
+    // Small delay to ensure localStorage is ready
+    const timer = setTimeout(() => {
+      loadUserData();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadUserData = async () => {
     try {
       const currentUser = getCurrentUser();
       console.log('Current user:', currentUser);
-      console.log('User groups:', currentUser?.groups);
       
       setUser(currentUser);
       
@@ -28,13 +32,30 @@ export default function Portal() {
       console.log('Is staff?', userIsStaff);
       setIsStaff(userIsStaff);
 
-      // Check if user is an approved resident
+      // Check if user is an approved resident and get their resident info
       try {
         const residentCheck = await checkResident();
         console.log('Resident check:', residentCheck);
         
         if (residentCheck.isResident) {
           setIsResident(true);
+          
+          // Get resident info (with unitNumber) directly from the Lambda response
+          if (residentCheck.residentInfo) {
+            console.log('Resident info from checkResident:', residentCheck.residentInfo);
+            setResidentInfo(residentCheck.residentInfo);
+          } else {
+            // Fallback: try to get resident info separately
+            try {
+              const info = await getResidentInfo();
+              if (info) {
+                console.log('Resident info from getResidentInfo:', info);
+                setResidentInfo(info);
+              }
+            } catch (error) {
+              console.error('Error getting resident info:', error);
+            }
+          }
           
           // Load notices for all users
           const noticesData = await getNotices();
@@ -140,7 +161,7 @@ export default function Portal() {
       {isStaff ? (
         <StaffPortal tickets={tickets} />
       ) : (
-        <ResidentPortal user={user} tickets={tickets} notices={notices} onTicketSubmit={handleTicketSubmit} onLoadUserData={loadUserData} />
+        <ResidentPortal user={user} tickets={tickets} notices={notices} onTicketSubmit={handleTicketSubmit} onLoadUserData={loadUserData} residentInfo={residentInfo} />
       )}
     </div>
   );
@@ -219,29 +240,36 @@ function ResidentPortal({
   notices,
   onTicketSubmit,
   onLoadUserData,
+  residentInfo,
 }: {
   user: User | null;
   tickets: Ticket[];
   notices: Notice[];
   onTicketSubmit: (ticket: Ticket) => Promise<void>;
   onLoadUserData: () => Promise<void>;
+  residentInfo: Resident | null;
 }) {
   const [ticketForm, setTicketForm] = useState({
     subject: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     residentName: '',
-    unitNumber: user?.['custom:apartmentNumber'] || '',
+    unitNumber: residentInfo?.unitNumber || '',
     phoneNumber: '',
     allowEntry: false,
   });
 
-  // Update unitNumber when user changes
+  // Update unitNumber when residentInfo or user changes
+  // Try residentInfo first, then fall back to user custom attribute
   useEffect(() => {
-    if (user?.['custom:apartmentNumber']) {
-      setTicketForm(prev => ({ ...prev, unitNumber: user['custom:apartmentNumber'] }));
+    if (residentInfo?.unitNumber) {
+      console.log('Setting unitNumber from residentInfo:', residentInfo.unitNumber);
+      setTicketForm(prev => ({ ...prev, unitNumber: residentInfo.unitNumber || '' }));
+    } else if (user?.['custom:apartmentNumber']) {
+      console.log('Setting unitNumber from user custom attr:', user['custom:apartmentNumber']);
+      setTicketForm(prev => ({ ...prev, unitNumber: user['custom:apartmentNumber'] || '' }));
     }
-  }, [user]);
+  }, [residentInfo, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,7 +375,7 @@ function ResidentPortal({
                 <input
                   type="text"
                   required
-                  value={ticketForm.unitNumber}
+                  value={ticketForm.unitNumber || ''}
                   readOnly
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
                   placeholder="Your apartment number"
@@ -450,6 +478,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [showResidentTab, setShowResidentTab] = useState(false);
   const [residents, setResidents] = useState<Resident[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newResident, setNewResident] = useState({
     email: '',
@@ -466,6 +495,9 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   useEffect(() => {
     if (showResidentTab) {
       loadResidents();
+      // Auto-refresh every 1 minute
+      const interval = setInterval(loadResidents, 60000);
+      return () => clearInterval(interval);
     }
   }, [showResidentTab]);
 
@@ -959,22 +991,43 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             )}
 
             <div className="bg-white rounded-xl shadow-lg overflow-hidden text-gray-900">
+              <div className="p-4 bg-gray-50 border-b border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Building:</label>
+                <select
+                  value={selectedBuildingFilter}
+                  onChange={(e) => setSelectedBuildingFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                >
+                  <option value="all">All Buildings</option>
+                  {buildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-100 border-b-2 border-gray-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Building</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {residents.map((resident) => (
+                    {residents
+                      .filter((resident) => selectedBuildingFilter === 'all' || resident.buildingId === selectedBuildingFilter)
+                      .map((resident) => (
                       <tr key={resident.id} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 text-sm text-gray-900 font-medium">{resident.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{resident.email}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {buildings.find(b => b.id === resident.buildingId)?.name || 'N/A'}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-700">{resident.unitNumber || 'N/A'}</td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

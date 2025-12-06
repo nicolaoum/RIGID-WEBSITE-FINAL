@@ -1,6 +1,10 @@
 import { CognitoIdentityProviderClient, ListUsersInGroupCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const cognito = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (event: any) => {
   console.log('Get Residents Request:', JSON.stringify(event, null, 2));
@@ -43,6 +47,8 @@ export const handler = async (event: any) => {
     }
 
     const userPoolId = process.env.COGNITO_USER_POOL_ID;
+    const residentsTableName = process.env.RESIDENTS_TABLE || 'rigid-residents';
+    
     if (!userPoolId) {
       return {
         statusCode: 500,
@@ -54,49 +60,96 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Get all users in the resident group from Cognito
-    const residentsResponse = await cognito.send(
-      new ListUsersInGroupCommand({
-        UserPoolId: userPoolId,
-        GroupName: 'resident',
-      })
-    );
+    // STEP 1: Get all residents from DynamoDB (both pending and active)
+    let allResidents: any[] = [];
+    
+    try {
+      const dbResult = await docClient.send(
+        new ScanCommand({
+          TableName: residentsTableName,
+        })
+      );
+      
+      if (dbResult.Items && dbResult.Items.length > 0) {
+        allResidents = dbResult.Items.map((item: any) => ({
+          id: item.id,
+          email: item.email,
+          name: item.email.split('@')[0], // Default to email prefix if no name
+          unitNumber: item.unitNumber,
+          buildingId: item.buildingId,
+          status: item.status, // 'pending' or 'active'
+          source: 'dynamodb',
+          createdAt: item.createdAt,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching from DynamoDB:', error);
+    }
 
-    // Fetch full user details for each resident
-    const residents = await Promise.all(
-      (residentsResponse.Users || []).map(async (user) => {
-        try {
-          const userDetails = await cognito.send(
-            new AdminGetUserCommand({
-              UserPoolId: userPoolId,
-              Username: user.Username!,
-            })
-          );
+    // STEP 2: Enrich with Cognito data for active residents
+    const residentsMap = new Map();
+    
+    // First, add all DynamoDB residents to the map
+    allResidents.forEach(resident => {
+      residentsMap.set(resident.email, resident);
+    });
 
-          // Extract attributes
-          const attributes: any = {};
-          userDetails.UserAttributes?.forEach((attr) => {
-            attributes[attr.Name!] = attr.Value;
-          });
+    try {
+      // Get all users in the resident group from Cognito
+      const residentsResponse = await cognito.send(
+        new ListUsersInGroupCommand({
+          UserPoolId: userPoolId,
+          GroupName: 'resident',
+        })
+      );
 
-          return {
-            username: user.Username,
-            email: attributes.email,
-            name: attributes.name,
-            phoneNumber: attributes.phone_number,
-            unitNumber: attributes['custom:apartmentNumber'],
-            status: userDetails.UserStatus,
-            createdAt: userDetails.UserCreateDate,
-          };
-        } catch (error) {
-          console.error(`Error fetching user ${user.Username}:`, error);
-          return null;
+      // Fetch full user details for each resident
+      const cognitoResidents = await Promise.all(
+        (residentsResponse.Users || []).map(async (user) => {
+          try {
+            const userDetails = await cognito.send(
+              new AdminGetUserCommand({
+                UserPoolId: userPoolId,
+                Username: user.Username!,
+              })
+            );
+
+            // Extract attributes
+            const attributes: any = {};
+            userDetails.UserAttributes?.forEach((attr) => {
+              attributes[attr.Name!] = attr.Value;
+            });
+
+            return {
+              email: attributes.email,
+              name: attributes.name,
+              phoneNumber: attributes.phone_number,
+              unitNumber: attributes['custom:apartmentNumber'],
+              buildingId: attributes['custom:buildingId'],
+              status: 'active',
+              source: 'cognito',
+              createdAt: userDetails.UserCreateDate,
+            };
+          } catch (error) {
+            console.error(`Error fetching user ${user.Username}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Merge Cognito data, overwriting DynamoDB entries for active residents
+      cognitoResidents.forEach(resident => {
+        if (resident && resident.email) {
+          residentsMap.set(resident.email, resident);
         }
-      })
-    );
+      });
+    } catch (error) {
+      console.error('Error fetching from Cognito:', error);
+      // Continue - we still have the DynamoDB residents
+    }
 
-    // Filter out null values
-    const validResidents = residents.filter((r) => r !== null);
+    // Convert map to array and filter out nulls
+    const validResidents = Array.from(residentsMap.values()).filter((r) => r !== null);
 
     return {
       statusCode: 200,
