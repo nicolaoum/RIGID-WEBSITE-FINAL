@@ -1,4 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
+
+const dynamoClient = new DynamoDB({});
 
 /**
  * GET /notices
@@ -8,33 +11,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   console.log('GET /notices request:', event);
 
   try {
-    // Mock data - In production, query RDS for active notices
-    const notices = [
-      {
-        id: 'notice-001',
-        title: 'Scheduled Maintenance - Water Shutoff',
-        content: 'Water will be shut off on Friday, December 6th from 9 AM to 12 PM for pipe maintenance.',
-        type: 'warning',
-        publishedAt: '2024-11-28T09:00:00Z',
-        buildingId: null,
-      },
-      {
-        id: 'notice-002',
-        title: 'Holiday Office Hours',
-        content: 'Our office will be closed December 24-26 for the holidays. Emergency maintenance available 24/7.',
-        type: 'info',
-        publishedAt: '2024-11-20T12:00:00Z',
-        buildingId: null,
-      },
-      {
-        id: 'notice-003',
-        title: 'Package Room Update',
-        content: 'New package lockers have been installed. Please pick up packages within 48 hours.',
-        type: 'info',
-        publishedAt: '2024-11-15T14:00:00Z',
-        buildingId: 'bldg-001',
-      },
-    ];
+    const noticesTable = process.env.NOTICES_TABLE || process.env.NOTICES_TABLE_NAME || 'rigid-notices';
+
+    // Scan all notices from DynamoDB
+    const result = await dynamoClient.scan({
+      TableName: noticesTable,
+    });
+
+    // Convert DynamoDB items to notice objects
+    const notices = (result.Items || []).map(item => ({
+      id: item.id?.S,
+      title: item.title?.S,
+      content: item.content?.S,
+      type: item.type?.S,
+      publishedAt: item.publishedAt?.S,
+      buildingId: item.buildingId?.S || null,
+    })).sort((a, b) => {
+      // Sort by publishedAt in descending order (newest first)
+      return new Date(b.publishedAt || '').getTime() - new Date(a.publishedAt || '').getTime();
+    });
 
     return {
       statusCode: 200,

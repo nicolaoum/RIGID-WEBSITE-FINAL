@@ -202,6 +202,16 @@ export const getNotices = async (): Promise<Notice[]> => {
 };
 
 /**
+ * Post a new notice (staff/admin only)
+ */
+export const postNotice = async (notice: { title: string; content: string; type: 'info' | 'warning' | 'urgent'; buildingId?: string }): Promise<{ success: boolean; message: string; notice: Notice }> => {
+  return apiRequest('/notices', {
+    method: 'POST',
+    body: JSON.stringify(notice),
+  });
+};
+
+/**
  * Check if current user is an approved resident
  */
 export const checkResident = async (): Promise<ResidentCheck> => {

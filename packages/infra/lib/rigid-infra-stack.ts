@@ -278,6 +278,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     noticesTable.grantReadData(getNoticesLambda);
 
+    // POST /notices (staff/admin only)
+    const postNoticeLambda = new lambda.Function(this, 'PostNoticeFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'postNotice.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    noticesTable.grantWriteData(postNoticeLambda);
+
     // POST /upload-url (for S3 image uploads)
     const getUploadUrlLambda = new lambda.Function(this, 'GetUploadUrlFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -493,6 +505,8 @@ export class RigidInfraStack extends cdk.Stack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
+    // POST /notices - no authorizer for now (Lambda will handle validation)
+    noticesResource.addMethod('POST', new apigateway.LambdaIntegration(postNoticeLambda));
 
     // GET /check-resident (authenticated)
     const checkResidentResource = api.root.addResource('check-resident');

@@ -487,6 +487,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [localTickets, setLocalTickets] = useState<Ticket[]>(tickets);
   const [showResidentTab, setShowResidentTab] = useState(false);
+  const [showAnnouncementsTab, setShowAnnouncementsTab] = useState(false);
   const [residents, setResidents] = useState<Resident[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('all');
@@ -620,11 +621,11 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <button
-            onClick={() => setShowResidentTab(false)}
+            onClick={() => { setShowResidentTab(false); setShowAnnouncementsTab(false); }}
             className={`px-8 py-3 rounded-lg font-semibold transition ${
-              !showResidentTab
+              !showResidentTab && !showAnnouncementsTab
                 ? 'bg-white text-gray-900'
                 : 'bg-gray-700 text-white hover:bg-gray-600'
             }`}
@@ -632,7 +633,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             🎫 Tickets
           </button>
           <button
-            onClick={() => setShowResidentTab(true)}
+            onClick={() => { setShowResidentTab(true); setShowAnnouncementsTab(false); }}
             className={`px-8 py-3 rounded-lg font-semibold transition ${
               showResidentTab
                 ? 'bg-white text-gray-900'
@@ -641,9 +642,29 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
           >
             👥 Residents
           </button>
+          <button
+            onClick={() => { setShowAnnouncementsTab(true); setShowResidentTab(false); }}
+            className={`px-8 py-3 rounded-lg font-semibold transition ${
+              showAnnouncementsTab
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            📢 Announcements
+          </button>
         </div>
 
-        {!showResidentTab ? (
+        {showAnnouncementsTab ? (
+          /* Announcements Section */
+          <div className="text-center py-8">
+            <Link 
+              href="/announcements"
+              className="inline-block bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition font-semibold text-lg"
+            >
+              Open Announcements Manager
+            </Link>
+          </div>
+        ) : !showResidentTab ? (
           <div>
         {/* Filter Buttons */}
         <div className="flex flex-wrap justify-center gap-4 mb-8">

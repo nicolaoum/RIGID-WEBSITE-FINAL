@@ -1,0 +1,11 @@
+{
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "email": "test@test.com",
+        "cognito:groups": "staff"
+      }
+    }
+  },
+  "body": "{\"title\":\"Test\",\"content\":\"Test content\",\"type\":\"info\"}"
+}
