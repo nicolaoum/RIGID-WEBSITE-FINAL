@@ -230,7 +230,7 @@ export default function Residents() {
                       <td className="py-3 px-4 text-gray-700">{resident.phoneNumber || 'N/A'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          resident.status === 'active' 
+                          resident.status === 'CONFIRMED' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>

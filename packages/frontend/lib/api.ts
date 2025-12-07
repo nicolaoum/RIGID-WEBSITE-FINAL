@@ -75,8 +75,6 @@ export interface User {
   name?: string;
   sub: string;
   groups?: string[];
-  'custom:apartmentNumber'?: string;
-  [key: string]: any;
 }
 
 export interface Resident {
@@ -86,7 +84,6 @@ export interface Resident {
   unitNumber?: string;
   buildingId?: string;
   phoneNumber?: string;
-  apartmentNumber?: string;
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
