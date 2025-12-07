@@ -13,12 +13,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const url = `${targetBase}/${path}${search}`
 
   try {
+    // Build headers, filtering out problematic ones
+    const headersToForward: Record<string, string> = {}
+    const headersToExclude = [
+      'host',
+      'expect', // Not supported by undici
+      'content-length', // Let fetch handle it
+      'transfer-encoding',
+      'connection',
+      'keep-alive',
+      'upgrade',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailers',
+    ]
+
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!headersToExclude.includes(key) && typeof value === 'string') {
+        headersToForward[key] = value
+      }
+    }
+
     const init: RequestInit = {
       method: req.method,
-      headers: {
-        ...(req.headers as Record<string, string>),
-        host: undefined as any, // avoid passing host through
-      },
+      headers: headersToForward as Record<string, string>,
       redirect: 'follow',
     }
 
@@ -26,9 +45,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       init.body = req.body ? JSON.stringify(req.body) : undefined
       // Ensure content-type for JSON bodies
       if (req.headers['content-type']) {
-        init.headers!['content-type'] = req.headers['content-type'] as string
+        (init.headers as Record<string, string>)['content-type'] = req.headers['content-type'] as string
       } else if (init.body) {
-        init.headers!['content-type'] = 'application/json'
+        (init.headers as Record<string, string>)['content-type'] = 'application/json'
       }
     }
 

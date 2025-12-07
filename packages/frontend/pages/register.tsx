@@ -13,6 +13,7 @@ export default function Register() {
     email: '',
     unitNumber: '',
     buildingId: '',
+    phoneNumber: '',
   });
 
   useEffect(() => {
@@ -47,8 +48,8 @@ export default function Register() {
     e.preventDefault();
     setError('');
 
-    if (!formData.email || !formData.unitNumber) {
-      setError('Email and unit number are required');
+    if (!formData.email || !formData.unitNumber || !formData.phoneNumber) {
+      setError('Email, unit number, and phone number are required');
       return;
     }
 
@@ -151,6 +152,19 @@ export default function Register() {
                   placeholder="Your apartment number"
                 />
                 <p className="text-xs text-gray-500 mt-1">Your apartment number (automatically detected)</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
+                <input
+                  type="tel"
+                  required
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-gray-900 focus:outline-none transition"
+                  placeholder="+357 99 123456"
+                />
+                <p className="text-xs text-gray-500 mt-1">Your contact phone number</p>
               </div>
 
               <div>

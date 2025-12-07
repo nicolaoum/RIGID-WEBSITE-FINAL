@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { refreshTokens } from './auth';
 
 /**
  * Hook to automatically restore user session from localStorage on app startup
- * This prevents requiring re-login after page refresh or webserver restart
+ * and refresh tokens every 50 minutes to maintain session
  */
 export const useSessionRestore = () => {
   const router = useRouter();
@@ -19,6 +20,15 @@ export const useSessionRestore = () => {
       if (savedUser && savedToken) {
         console.log('Session restored from localStorage');
       }
+
+      // Set up token refresh interval (every 50 minutes)
+      // This keeps the session alive as long as the user has the browser open
+      const refreshInterval = setInterval(async () => {
+        console.log('Attempting to refresh tokens...');
+        await refreshTokens();
+      }, 50 * 60 * 1000); // 50 minutes
+
+      return () => clearInterval(refreshInterval);
     }
   }, [router.isReady]);
 };

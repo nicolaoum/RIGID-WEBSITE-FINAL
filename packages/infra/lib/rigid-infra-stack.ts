@@ -136,6 +136,7 @@ export class RigidInfraStack extends cdk.Stack {
       TICKETS_TABLE: ticketsTable.tableName,
       NOTICES_TABLE: noticesTable.tableName,
       RESIDENTS_TABLE: residentsTable.tableName,
+      RESIDENTS_TABLE_NAME: residentsTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       NODE_ENV: 'production',

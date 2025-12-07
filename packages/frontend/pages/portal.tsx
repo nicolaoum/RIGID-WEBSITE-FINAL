@@ -254,7 +254,7 @@ function ResidentPortal({
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     residentName: '',
-    unitNumber: residentInfo?.unitNumber || '',
+    unitNumber: '',
     phoneNumber: '',
     allowEntry: false,
   });
@@ -262,12 +262,23 @@ function ResidentPortal({
   // Update unitNumber when residentInfo or user changes
   // Try residentInfo first, then fall back to user custom attribute
   useEffect(() => {
+    console.log('useEffect triggered - residentInfo:', residentInfo, 'user:', user);
+    
+    // Try multiple sources in order
+    let unitNum: string | undefined;
+    
     if (residentInfo?.unitNumber) {
-      console.log('Setting unitNumber from residentInfo:', residentInfo.unitNumber);
-      setTicketForm(prev => ({ ...prev, unitNumber: residentInfo.unitNumber || '' }));
+      unitNum = residentInfo.unitNumber;
+      console.log('✅ Using unitNumber from residentInfo:', unitNum);
     } else if (user?.['custom:apartmentNumber']) {
-      console.log('Setting unitNumber from user custom attr:', user['custom:apartmentNumber']);
-      setTicketForm(prev => ({ ...prev, unitNumber: user['custom:apartmentNumber'] || '' }));
+      unitNum = user['custom:apartmentNumber'];
+      console.log('✅ Using unitNumber from user custom attr:', unitNum);
+    } else {
+      console.log('❌ NO APARTMENT NUMBER FOUND - residentInfo:', residentInfo, 'user attr:', user?.['custom:apartmentNumber']);
+    }
+    
+    if (unitNum) {
+      setTicketForm(prev => ({ ...prev, unitNumber: unitNum || '' }));
     }
   }, [residentInfo, user]);
 
@@ -961,6 +972,18 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                       onChange={(e) => setNewResident({ ...newResident, unitNumber: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                       placeholder="e.g., 101, 2A"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newResident.phoneNumber}
+                      onChange={(e) => setNewResident({ ...newResident, phoneNumber: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="+357 99 123456"
                     />
                   </div>
 

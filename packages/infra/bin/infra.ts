@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { RigidInfraStack } from '../lib/rigid-infra-stack';
+// Force redeploy - fix addResident scan
 
 const app = new cdk.App();
 

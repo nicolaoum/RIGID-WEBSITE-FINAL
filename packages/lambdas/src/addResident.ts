@@ -46,7 +46,7 @@ export const handler = async (event: any) => {
 
     // Parse request body
     const body = JSON.parse(event.body || '{}');
-    const { email, unitNumber, buildingId } = body;
+    const { email, unitNumber, buildingId, phoneNumber } = body;
 
     // Validate required fields
     if (!email || !unitNumber) {
@@ -86,7 +86,7 @@ export const handler = async (event: any) => {
         // Scan for residents with same unitNumber and buildingId
         const existingResult = await dynamoClient.scan({
           TableName: residentsTableName,
-          FilterExpression: 'unitNumber = :unitNum AND buildingId = :buildId',
+          FilterExpression: 'attribute_exists(unitNumber) AND unitNumber = :unitNum AND attribute_exists(buildingId) AND buildingId = :buildId',
           ExpressionAttributeValues: {
             ':unitNum': { S: unitNumber },
             ':buildId': { S: buildingId },
@@ -136,17 +136,24 @@ export const handler = async (event: any) => {
     }
 
     // STEP 1: Save resident to DynamoDB with status 'pending'
+    const dynamoItem: any = {
+      id: { S: residentId },
+      email: { S: emailLower },
+      unitNumber: { S: unitNumber },
+      buildingId: { S: buildingId || 'unassigned' },
+      status: { S: 'pending' },
+      createdAt: { S: now },
+      updatedAt: { S: now },
+    };
+
+    // Add phone number if provided
+    if (phoneNumber) {
+      dynamoItem.phoneNumber = { S: phoneNumber };
+    }
+
     await dynamoClient.putItem({
       TableName: residentsTableName,
-      Item: {
-        id: { S: residentId },
-        email: { S: emailLower },
-        unitNumber: { S: unitNumber },
-        buildingId: { S: buildingId || 'unassigned' },
-        status: { S: 'pending' },
-        createdAt: { S: now },
-        updatedAt: { S: now },
-      },
+      Item: dynamoItem,
     });
 
     console.log(`Resident ${emailLower} added to DynamoDB with status 'pending'`);
@@ -186,6 +193,19 @@ export const handler = async (event: any) => {
         userAttributes.push({
           Name: 'custom:buildingId',
           Value: buildingId,
+        });
+      }
+
+      if (phoneNumber) {
+        // Format phone number to E.164 format if not already formatted
+        let formattedPhone = phoneNumber.trim();
+        if (!formattedPhone.startsWith('+')) {
+          // Assume Cyprus country code if no country code provided
+          formattedPhone = `+357${formattedPhone.replace(/^0+/, '')}`;
+        }
+        userAttributes.push({
+          Name: 'phone_number',
+          Value: formattedPhone,
         });
       }
 

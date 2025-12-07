@@ -205,7 +205,11 @@ export const getNotices = async (): Promise<Notice[]> => {
  * Check if current user is an approved resident
  */
 export const checkResident = async (): Promise<ResidentCheck> => {
-  return apiRequest<ResidentCheck>('/check-resident');
+  const result = await apiRequest<ResidentCheck>('/check-resident');
+  console.log('🔍 checkResident raw response:', result);
+  console.log('🔍 residentInfo:', result.residentInfo);
+  console.log('🔍 residentInfo.unitNumber:', result.residentInfo?.unitNumber);
+  return result;
 };
 
 /**
@@ -234,6 +238,16 @@ export const addResident = async (resident: Partial<Resident>): Promise<Resident
     method: 'POST',
     body: JSON.stringify(resident),
   });
+};
+
+/**
+ * Get current resident's info from checkResident endpoint
+ */
+export const getResidentInfo = async (): Promise<Resident | null> => {
+  const result: ResidentCheck = await apiRequest('/check-resident', {
+    method: 'GET',
+  });
+  return result.residentInfo || null;
 };
 
 /**
