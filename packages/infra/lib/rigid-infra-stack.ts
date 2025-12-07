@@ -418,7 +418,11 @@ export class RigidInfraStack extends cdk.Stack {
         stageName: 'prod',
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: [
+          'http://localhost:3000',
+          'https://rigidresidential.com',
+          'https://www.rigidresidential.com',
+        ],
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: [
           'Content-Type',
