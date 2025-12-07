@@ -61,7 +61,7 @@ export default function Register() {
     try {
       await registerResident(formData);
       setSubmitted(true);
-      setFormData({ email: '', unitNumber: '', buildingId: '' });
+      setFormData({ email: '', unitNumber: '', buildingId: '', phoneNumber: '' });
     } catch (err: any) {
       setError(err.message || 'Failed to submit registration request');
     }
