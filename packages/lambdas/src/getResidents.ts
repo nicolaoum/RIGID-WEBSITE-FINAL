@@ -120,7 +120,11 @@ export const handler = async (event: any) => {
               attributes[attr.Name!] = attr.Value;
             });
 
+            // Check if this user exists in DynamoDB to get their ID
+            const existingResident = residentsMap.get(attributes.email);
+            
             return {
+              id: existingResident?.id || attributes.email, // Use DynamoDB ID if available, fallback to email
               email: attributes.email,
               name: attributes.name,
               phoneNumber: attributes.phone_number,

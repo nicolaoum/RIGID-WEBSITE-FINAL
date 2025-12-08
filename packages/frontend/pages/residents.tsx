@@ -73,12 +73,12 @@ export default function Residents() {
     }
   };
 
-  const handleDeleteResident = async (email: string) => {
+  const handleDeleteResident = async (residentId: string, email: string) => {
     if (!confirm(`Are you sure you want to remove ${email} from residents?`)) return;
 
     setDeleting(email);
     try {
-      await deleteResident(email);
+      await deleteResident(residentId);
       setMessage(`✓ Resident ${email} removed successfully`);
       
       // Reload residents list
@@ -239,7 +239,7 @@ export default function Residents() {
                       </td>
                       <td className="py-3 px-4">
                         <button
-                          onClick={() => handleDeleteResident(resident.email!)}
+                          onClick={() => handleDeleteResident(resident.id!, resident.email!)}
                           disabled={deleting === resident.email}
                           className="text-red-600 hover:text-red-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >

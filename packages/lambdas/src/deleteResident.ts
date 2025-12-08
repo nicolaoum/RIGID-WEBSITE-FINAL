@@ -1,8 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
+const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 export const handler = async (event: any) => {
   console.log('Delete Resident Request:', JSON.stringify(event, null, 2));
@@ -58,7 +60,62 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Delete resident
+    const userPoolId = process.env.COGNITO_USER_POOL_ID;
+
+    // First, get the resident info from DynamoDB to find their email
+    let residentEmail: string | null = null;
+    try {
+      const getResult = await docClient.send(
+        new GetCommand({
+          TableName: process.env.RESIDENTS_TABLE,
+          Key: { id: residentId },
+        })
+      );
+      
+      if (getResult.Item) {
+        residentEmail = getResult.Item.email;
+      }
+    } catch (error) {
+      console.error('Error fetching resident from DynamoDB:', error);
+    }
+
+    // If we found the email and have a user pool, try to remove from Cognito group
+    if (residentEmail && userPoolId) {
+      try {
+        // Import ListUsers to find user by email
+        const { ListUsersCommand } = await import('@aws-sdk/client-cognito-identity-provider');
+        
+        // Find the Cognito user with this email
+        const listResult = await cognitoClient.send(
+          new ListUsersCommand({
+            UserPoolId: userPoolId,
+            Filter: `email = "${residentEmail}"`,
+            Limit: 1,
+          })
+        );
+
+        if (listResult.Users && listResult.Users.length > 0 && listResult.Users[0].Username) {
+          const username = listResult.Users[0].Username;
+          
+          // Remove from resident group
+          await cognitoClient.send(
+            new AdminRemoveUserFromGroupCommand({
+              UserPoolId: userPoolId,
+              Username: username,
+              GroupName: 'resident',
+            })
+          );
+          console.log(`Removed ${username} (${residentEmail}) from Cognito resident group`);
+        } else {
+          console.log(`No Cognito user found with email ${residentEmail}`);
+        }
+      } catch (cognitoError: any) {
+        // User might not exist in Cognito or might not be in the group - that's ok
+        console.log('Could not remove from Cognito group (user may not exist):', cognitoError.message);
+      }
+    }
+
+    // Delete resident from DynamoDB
     await docClient.send(
       new DeleteCommand({
         TableName: process.env.RESIDENTS_TABLE,
