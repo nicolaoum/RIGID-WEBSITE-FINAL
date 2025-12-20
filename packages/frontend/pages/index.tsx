@@ -119,16 +119,17 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {buildings.map((building) => (
-              <div
+              <Link
                 key={building.id}
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300"
+                href={`/units?building=${building.id}`}
+                className="group block bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-full focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-4 focus:ring-offset-gray-50"
               >
                 <div className="h-64 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                   {building.imageUrl ? (
                     <img
                       src={building.imageUrl}
                       alt={building.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   ) : (
                     <span className="text-gray-500 text-6xl">🏢</span>
@@ -171,14 +172,11 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <Link
-                    href={`/units?building=${building.id}`}
-                    className="block w-full text-center bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-                  >
+                  <div className="block w-full text-center bg-gray-900 text-white py-3 rounded-lg font-semibold transition group-hover:bg-gray-800">
                     View Available Apartments
-                  </Link>
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 

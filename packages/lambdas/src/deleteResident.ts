@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -46,7 +46,7 @@ export const handler = async (event: any) => {
       };
     }
 
-    // Get resident ID from path
+    // Get resident ID from path (can be DynamoDB id or email)
     const residentId = event.pathParameters?.id;
     
     if (!residentId) {
@@ -64,6 +64,7 @@ export const handler = async (event: any) => {
 
     // First, get the resident info from DynamoDB to find their email
     let residentEmail: string | null = null;
+    let residentDbId: string | null = null;
     try {
       const getResult = await docClient.send(
         new GetCommand({
@@ -74,9 +75,38 @@ export const handler = async (event: any) => {
       
       if (getResult.Item) {
         residentEmail = getResult.Item.email;
+        residentDbId = getResult.Item.id;
       }
     } catch (error) {
       console.error('Error fetching resident from DynamoDB:', error);
+    }
+
+    // If we still don't have an email, try GSI lookup by email (using the path value as email)
+    if (!residentEmail && typeof residentId === 'string' && residentId.includes('@')) {
+      try {
+        const queryResult = await docClient.send(
+          new QueryCommand({
+            TableName: process.env.RESIDENTS_TABLE,
+            IndexName: 'email-index',
+            KeyConditionExpression: 'email = :email',
+            ExpressionAttributeValues: {
+              ':email': residentId.toLowerCase(),
+            },
+            Limit: 1,
+          })
+        );
+        if (queryResult.Items && queryResult.Items.length > 0) {
+          residentEmail = queryResult.Items[0].email;
+          residentDbId = queryResult.Items[0].id;
+        }
+      } catch (queryError) {
+        console.error('Error querying resident by email index:', queryError);
+      }
+    }
+
+    // Fallback: if not found but the path id looks like an email, use it directly
+    if (!residentEmail && typeof residentId === 'string' && residentId.includes('@')) {
+      residentEmail = residentId.toLowerCase();
     }
 
     // If we found the email and have a user pool, try to remove from Cognito group
@@ -106,6 +136,16 @@ export const handler = async (event: any) => {
             })
           );
           console.log(`Removed ${username} (${residentEmail}) from Cognito resident group`);
+        } else if (typeof residentId === 'string') {
+          // Fallback: try using the path id directly as the Cognito username
+          await cognitoClient.send(
+            new AdminRemoveUserFromGroupCommand({
+              UserPoolId: userPoolId,
+              Username: residentId,
+              GroupName: 'resident',
+            })
+          );
+          console.log(`Fallback: removed ${residentId} from Cognito resident group`);
         } else {
           console.log(`No Cognito user found with email ${residentEmail}`);
         }
@@ -115,13 +155,28 @@ export const handler = async (event: any) => {
       }
     }
 
-    // Delete resident from DynamoDB
-    await docClient.send(
-      new DeleteCommand({
-        TableName: process.env.RESIDENTS_TABLE,
-        Key: { id: residentId },
-      })
-    );
+    // Delete resident from DynamoDB (by path id, plus any alternate id we found)
+    const deletePromises = [
+      docClient.send(
+        new DeleteCommand({
+          TableName: process.env.RESIDENTS_TABLE,
+          Key: { id: residentId },
+        })
+      ),
+    ];
+
+    if (residentDbId && residentDbId !== residentId) {
+      deletePromises.push(
+        docClient.send(
+          new DeleteCommand({
+            TableName: process.env.RESIDENTS_TABLE,
+            Key: { id: residentDbId },
+          })
+        )
+      );
+    }
+
+    await Promise.all(deletePromises);
 
     return {
       statusCode: 200,
