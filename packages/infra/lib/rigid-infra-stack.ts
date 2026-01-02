@@ -290,6 +290,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     noticesTable.grantWriteData(postNoticeLambda);
 
+    // DELETE /notices/{noticeId} (staff/admin only)
+    const deleteNoticeLambda = new lambda.Function(this, 'DeleteNoticeFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'deleteNotice.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    noticesTable.grantReadWriteData(deleteNoticeLambda);
+
     // POST /upload-url (for S3 image uploads)
     const getUploadUrlLambda = new lambda.Function(this, 'GetUploadUrlFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -385,7 +397,7 @@ export class RigidInfraStack extends cdk.Stack {
       code: lambda.Code.fromAsset(lambdaPath),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
-      environment: lambdaEnvironment,o github.com...
+      environment: lambdaEnvironment,
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
     residentsTable.grantReadData(checkResidentLambda);
@@ -524,6 +536,13 @@ export class RigidInfraStack extends cdk.Stack {
     });
     // POST /notices - no authorizer for now (Lambda will handle validation)
     noticesResource.addMethod('POST', new apigateway.LambdaIntegration(postNoticeLambda));
+
+    // DELETE /notices/{noticeId} (staff/admin only)
+    const noticeIdResource = noticesResource.addResource('{noticeId}');
+    noticeIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteNoticeLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
 
     // GET /check-resident (authenticated)
     const checkResidentResource = api.root.addResource('check-resident');

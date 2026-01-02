@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { getCurrentUser, getAccessToken } from '../lib/auth';
 
@@ -8,7 +8,7 @@ interface Notice {
   content: string;
   type: 'info' | 'warning' | 'urgent';
   publishedAt: string;
-  buildingId?: string;
+  buildingId?: string | null;
 }
 
 interface Building {
@@ -33,6 +33,26 @@ export default function Announcements() {
     buildingId: '',
   });
   const [filterBuildingId, setFilterBuildingId] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Filtered notices based on selected building
+  const filteredNotices = useMemo(() => {
+    console.log('Filter Debug:', { 
+      filterBuildingId, 
+      noticeCount: notices.length,
+      notices: notices.map(n => ({ id: n.id, title: n.title, buildingId: n.buildingId }))
+    });
+    if (!filterBuildingId) return notices;
+    const filtered = notices.filter((notice) => {
+      const noticeBuildingId = notice.buildingId || '';
+      const matches = noticeBuildingId === filterBuildingId;
+      console.log(`Notice ${notice.title}: buildingId=${noticeBuildingId}, filter=${filterBuildingId}, matches=${matches}`);
+      // Show ONLY notices for selected building (strict filter)
+      return matches;
+    });
+    console.log('Filtered result:', filtered.length);
+    return filtered;
+  }, [notices, filterBuildingId]);
 
   useEffect(() => {
     loadData();
@@ -127,6 +147,35 @@ export default function Announcements() {
       setMessage(`✗ Error: ${error.message || 'Failed to post announcement'}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (noticeId: string) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+    
+    setDeleting(noticeId);
+    try {
+      const accessToken = getAccessToken();
+      const response = await fetch(`/api/proxy/notices/${noticeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete notice: ${response.status}`);
+      }
+
+      // Remove from local state
+      setNotices(notices.filter(n => n.id !== noticeId));
+      setMessage('✓ Announcement deleted successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('Error deleting announcement:', error);
+      setMessage(`✗ Error: ${error.message || 'Failed to delete announcement'}`);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -290,18 +339,12 @@ export default function Announcements() {
             </div>
           </div>
           <div className="divide-y">
-            {notices.filter((notice) => {
-              if (!filterBuildingId) return true;
-              return notice.buildingId === filterBuildingId || !notice.buildingId;
-            }).length === 0 ? (
+            {filteredNotices.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
                 {filterBuildingId ? 'No announcements for this building.' : 'No announcements yet. Create one to get started!'}
               </div>
             ) : (
-              notices.filter((notice) => {
-                if (!filterBuildingId) return true;
-                return notice.buildingId === filterBuildingId || !notice.buildingId;
-              }).map((notice) => (
+              filteredNotices.map((notice) => (
                 <div key={notice.id} className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -321,6 +364,13 @@ export default function Announcements() {
                         {notice.buildingId ? ` • Building: ${buildings.find(b => b.id === notice.buildingId)?.name || notice.buildingId}` : ' • All Buildings'}
                       </div>
                     </div>
+                    <button
+                      onClick={() => handleDelete(notice.id)}
+                      disabled={deleting === notice.id}
+                      className="ml-4 px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                    >
+                      {deleting === notice.id ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 </div>
               ))
