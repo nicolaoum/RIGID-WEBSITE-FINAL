@@ -57,9 +57,52 @@ export default function Portal() {
             }
           }
           
-          // Load notices for all users
+          // Load notices and filter by resident's building
           const noticesData = await getNotices();
-          setNotices(noticesData);
+          console.log('=== NOTICE FILTERING ===');
+          console.log('All notices:', noticesData);
+          
+          // Get resident's building ID from checkResident response
+          const residentBuildingId = residentCheck.residentInfo?.buildingId;
+          console.log('Resident buildingId:', residentBuildingId);
+          console.log('Is staff?', userIsStaff, 'residentCheck.isStaff?', residentCheck.isStaff);
+          
+          // Filter notices based on resident's building
+          let filteredNotices: Notice[] = [];
+          
+          // Only skip filtering if user is staff AND NOT a resident with a building
+          // This ensures residents who are also staff still get filtered notices
+          const shouldFilterByBuilding = residentBuildingId && !userIsStaff;
+          console.log('Should filter by building?', shouldFilterByBuilding);
+          
+          if (!shouldFilterByBuilding) {
+            console.log('NOT filtering - showing all notices (staff user)');
+            filteredNotices = noticesData;
+          } else {
+            // For residents, filter by their building
+            for (const notice of noticesData) {
+              const noticeBuildingId = notice.buildingId || '';
+              
+              // Always show notices that are for "All Buildings" (no buildingId or empty)
+              if (!noticeBuildingId) {
+                console.log(`✅ Showing "${notice.title}" - it's for all buildings`);
+                filteredNotices.push(notice);
+              }
+              // Show notices that match the resident's building
+              else if (noticeBuildingId === residentBuildingId) {
+                console.log(`✅ Showing "${notice.title}" - notice building (${noticeBuildingId}) matches resident building (${residentBuildingId})`);
+                filteredNotices.push(notice);
+              }
+              else {
+                console.log(`❌ HIDING "${notice.title}" - notice is for ${noticeBuildingId}, resident is in ${residentBuildingId}`);
+              }
+            }
+          }
+          
+          console.log('Filtered notices count:', filteredNotices.length);
+          console.log('=== END FILTERING ===');
+          
+          setNotices(filteredNotices);
 
           // Load tickets based on user role
           if (userIsStaff) {
@@ -270,11 +313,15 @@ function ResidentPortal({
     if (residentInfo?.unitNumber) {
       unitNum = residentInfo.unitNumber;
       console.log('✅ Using unitNumber from residentInfo:', unitNum);
-    } else if (user?.['custom:apartmentNumber']) {
+    } else if (
+      // @ts-ignore
+      user?.['custom:apartmentNumber']
+    ) {
+      // @ts-ignore
       unitNum = user['custom:apartmentNumber'];
       console.log('✅ Using unitNumber from user custom attr:', unitNum);
     } else {
-      console.log('❌ NO APARTMENT NUMBER FOUND - residentInfo:', residentInfo, 'user attr:', user?.['custom:apartmentNumber']);
+      console.log('❌ NO APARTMENT NUMBER FOUND - residentInfo:', residentInfo, 'user attr:', (user as any)?.['custom:apartmentNumber']);
     }
     
     if (unitNum) {
@@ -449,14 +496,14 @@ function ResidentPortal({
                   <p className="text-sm text-gray-700 mb-2">{ticket.description}</p>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Priority: {ticket.priority}</span>
-                    <span>{ticket.createdAt && new Date(ticket.createdAt).toLocaleDateString()}</span>
+                    <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
                 <button
                   onClick={async () => {
                     if (confirm('Are you sure you want to delete this ticket?')) {
                       try {
-                        await deleteTicket(ticket.id);
+                        await deleteTicket(ticket.id || '');
                         await onLoadUserData();
                         alert('Ticket deleted successfully');
                       } catch (error) {
@@ -519,6 +566,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
         getResidents(),
         getBuildings(),
       ]);
+      console.log('Loaded residents:', residentsData);
       setResidents(residentsData);
       setBuildings(buildingsData);
     } catch (error) {
@@ -529,7 +577,9 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const handleAddResident = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addResident(newResident);
+      console.log('Adding resident:', newResident);
+      const result = await addResident(newResident);
+      console.log('Add resident result:', result);
       setShowAddForm(false);
       setNewResident({
         email: '',
@@ -538,11 +588,20 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
         buildingId: '',
         phoneNumber: '',
       });
-      await loadResidents();
+      // Small delay to ensure DynamoDB has propagated the change
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Force reload residents list
+      const [residentsData, buildingsData] = await Promise.all([
+        getResidents(),
+        getBuildings(),
+      ]);
+      console.log('Refreshed residents after add:', residentsData);
+      setResidents(residentsData);
+      setBuildings(buildingsData);
       alert('Resident added successfully!');
     } catch (error) {
       console.error('Error adding resident:', error);
-      alert('Failed to add resident');
+      alert('Failed to add resident: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -552,12 +611,25 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
     }
 
     try {
-      await deleteResident(residentId);
-      await loadResidents();
+      // Find the resident to get their cognitoUsername
+      const resident = residents.find(r => r.id === residentId);
+      console.log('Deleting resident:', residentId, 'cognitoUsername:', resident?.cognitoUsername);
+      const result = await deleteResident(residentId, resident?.cognitoUsername);
+      console.log('Delete result:', result);
+      // Small delay to ensure DynamoDB has propagated the change
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Force reload residents list
+      const [residentsData, buildingsData] = await Promise.all([
+        getResidents(),
+        getBuildings(),
+      ]);
+      console.log('Refreshed residents after delete:', residentsData);
+      setResidents(residentsData);
+      setBuildings(buildingsData);
       alert('Resident removed successfully');
     } catch (error) {
       console.error('Error deleting resident:', error);
-      alert('Failed to remove resident');
+      alert('Failed to remove resident: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -973,6 +1045,17 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                 <h4 className="text-xl font-bold mb-4">Add New Resident</h4>
                 <form onSubmit={handleAddResident} className="space-y-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={newResident.name}
+                      onChange={(e) => setNewResident({ ...newResident, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                     <input
                       type="email"
@@ -1009,8 +1092,9 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Building (Optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Building *</label>
                     <select
+                      required
                       value={newResident.buildingId}
                       onChange={(e) => setNewResident({ ...newResident, buildingId: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
@@ -1077,6 +1161,8 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             resident.status === 'active'
                               ? 'bg-green-100 text-green-800'
+                              : resident.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
                             {resident.status}
