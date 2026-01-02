@@ -348,6 +348,7 @@ export class RigidInfraStack extends cdk.Stack {
           'cognito-idp:AdminRemoveUserFromGroup',
           'cognito-idp:AdminGetUser',
           'cognito-idp:AdminUpdateUserAttributes',
+          'cognito-idp:ListUsers',
         ],
         resources: [userPool.userPoolArn],
       })
@@ -364,6 +365,18 @@ export class RigidInfraStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
     residentsTable.grantReadWriteData(deleteResidentLambda);
+    
+    // Grant Cognito permissions to deleteResidentLambda
+    deleteResidentLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:AdminRemoveUserFromGroup',
+          'cognito-idp:ListUsers',
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
 
     // GET /check-resident (authenticated)
     const checkResidentLambda = new lambda.Function(this, 'CheckResidentFunction', {
@@ -372,7 +385,7 @@ export class RigidInfraStack extends cdk.Stack {
       code: lambda.Code.fromAsset(lambdaPath),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
-      environment: lambdaEnvironment,
+      environment: lambdaEnvironment,o github.com...
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
     residentsTable.grantReadData(checkResidentLambda);

@@ -80,7 +80,7 @@ export default function BuildingsPage() {
               <div key={building.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                 <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                   {building.imageUrl ? (
-                    <img src={building.imageUrl} alt={building.name} className="w-full h-full object-cover" />
+                    <img src={building.imageUrl} alt={building.name} className="w-full h-full object-cover object-top" />
                   ) : (
                     <span className="text-gray-400 text-lg">🏢</span>
                   )}

@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -33,21 +33,26 @@ export const handler = async (event: any) => {
       groups = groupsClaim;
     }
 
-    const isAdmin = groups.includes('admin');
+    const isAuthorized = groups.includes('admin') || groups.includes('staff');
     
-    if (!isAdmin) {
+    if (!isAuthorized) {
       return {
         statusCode: 403,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Headers': '*',
         },
-        body: JSON.stringify({ message: 'Access denied. Admin role required.' }),
+        body: JSON.stringify({ message: 'Access denied. Admin or staff role required.' }),
       };
     }
 
-    // Get resident ID from path (can be DynamoDB id or email)
-    const residentId = event.pathParameters?.id;
+    // Get resident ID from path (can be DynamoDB id, email, or Cognito username)
+    const residentId = decodeURIComponent(event.pathParameters?.id || '');
+    
+    // Get cognitoUsername from query parameters if provided
+    const cognitoUsernameFromQuery = event.queryStringParameters?.cognitoUsername 
+      ? decodeURIComponent(event.queryStringParameters.cognitoUsername)
+      : null;
     
     if (!residentId) {
       return {
@@ -60,11 +65,15 @@ export const handler = async (event: any) => {
       };
     }
 
+    console.log('Delete request for residentId:', residentId, 'cognitoUsername from query:', cognitoUsernameFromQuery);
+
     const userPoolId = process.env.COGNITO_USER_POOL_ID;
 
     // First, get the resident info from DynamoDB to find their email
     let residentEmail: string | null = null;
     let residentDbId: string | null = null;
+    let cognitoUsername: string | null = null;
+    
     try {
       const getResult = await docClient.send(
         new GetCommand({
@@ -106,38 +115,55 @@ export const handler = async (event: any) => {
 
     // Fallback: if not found but the path id looks like an email, use it directly
     if (!residentEmail && typeof residentId === 'string' && residentId.includes('@')) {
-      residentEmail = residentId.toLowerCase();
+      // The ID might be in format "email-timestamp", extract the email part
+      const emailMatch = residentId.match(/^([^@]+@[^@]+\.[^-]+)/);
+      if (emailMatch) {
+        residentEmail = emailMatch[1].toLowerCase();
+      } else {
+        residentEmail = residentId.toLowerCase();
+      }
     }
 
-    // If we found the email and have a user pool, try to remove from Cognito group
-    if (residentEmail && userPoolId) {
-      try {
-        // Import ListUsers to find user by email
-        const { ListUsersCommand } = await import('@aws-sdk/client-cognito-identity-provider');
-        
-        // Find the Cognito user with this email
-        const listResult = await cognitoClient.send(
-          new ListUsersCommand({
-            UserPoolId: userPoolId,
-            Filter: `email = "${residentEmail}"`,
-            Limit: 1,
-          })
-        );
+    // Also try to extract email from ID format like "email@domain.com-timestamp"
+    if (!residentEmail && typeof residentId === 'string') {
+      const parts = residentId.split('-');
+      // Check if first part looks like an email
+      if (parts.length > 1) {
+        const potentialEmail = parts.slice(0, -1).join('-'); // Everything except last part (timestamp)
+        if (potentialEmail.includes('@')) {
+          residentEmail = potentialEmail.toLowerCase();
+        }
+      }
+    }
 
-        if (listResult.Users && listResult.Users.length > 0 && listResult.Users[0].Username) {
-          const username = listResult.Users[0].Username;
-          
-          // Remove from resident group
+    console.log('Attempting to delete resident. ID:', residentId, 'Email:', residentEmail);
+
+    // If we have a user pool, try to remove from Cognito group
+    if (userPoolId) {
+      let removed = false;
+      
+      // FIRST PRIORITY: If cognitoUsername was provided in query params, try that first
+      if (!removed && cognitoUsernameFromQuery) {
+        try {
+          console.log(`Trying to remove cognitoUsername from query: ${cognitoUsernameFromQuery}...`);
           await cognitoClient.send(
             new AdminRemoveUserFromGroupCommand({
               UserPoolId: userPoolId,
-              Username: username,
+              Username: cognitoUsernameFromQuery,
               GroupName: 'resident',
             })
           );
-          console.log(`Removed ${username} (${residentEmail}) from Cognito resident group`);
-        } else if (typeof residentId === 'string') {
-          // Fallback: try using the path id directly as the Cognito username
+          console.log(`Successfully removed ${cognitoUsernameFromQuery} from Cognito resident group`);
+          removed = true;
+        } catch (e: any) {
+          console.log(`Could not remove ${cognitoUsernameFromQuery} from query: ${e.message}`);
+        }
+      }
+      
+      // Second, try using the residentId directly as Cognito username (e.g., "Torcy2006")
+      if (!removed && residentId && !residentId.includes('@') && !residentId.includes('-')) {
+        try {
+          console.log(`Trying to remove ${residentId} directly as Cognito username...`);
           await cognitoClient.send(
             new AdminRemoveUserFromGroupCommand({
               UserPoolId: userPoolId,
@@ -145,14 +171,81 @@ export const handler = async (event: any) => {
               GroupName: 'resident',
             })
           );
-          console.log(`Fallback: removed ${residentId} from Cognito resident group`);
-        } else {
-          console.log(`No Cognito user found with email ${residentEmail}`);
+          console.log(`Successfully removed ${residentId} from Cognito resident group`);
+          removed = true;
+        } catch (e: any) {
+          console.log(`Could not remove ${residentId} directly: ${e.message}`);
         }
-      } catch (cognitoError: any) {
-        // User might not exist in Cognito or might not be in the group - that's ok
-        console.log('Could not remove from Cognito group (user may not exist):', cognitoError.message);
       }
+      
+      // If we have an email, try to find and remove by email
+      if (!removed && residentEmail) {
+        try {
+          // Find the Cognito user with this email
+          const listResult = await cognitoClient.send(
+            new ListUsersCommand({
+              UserPoolId: userPoolId,
+              Filter: `email = "${residentEmail}"`,
+              Limit: 1,
+            })
+          );
+
+          console.log('Cognito ListUsers result:', JSON.stringify(listResult.Users));
+
+          if (listResult.Users && listResult.Users.length > 0 && listResult.Users[0].Username) {
+            const username = listResult.Users[0].Username;
+            
+            console.log(`Found Cognito user: ${username}, removing from resident group...`);
+            
+            // Remove from resident group
+            await cognitoClient.send(
+              new AdminRemoveUserFromGroupCommand({
+                UserPoolId: userPoolId,
+                Username: username,
+                GroupName: 'resident',
+              })
+            );
+            console.log(`Successfully removed ${username} (${residentEmail}) from Cognito resident group`);
+            removed = true;
+          }
+        } catch (cognitoError: any) {
+          console.log('Could not remove by email lookup:', cognitoError.message);
+        }
+      }
+      
+      // Final fallback: try various username formats
+      if (!removed) {
+        const usernamesToTry = [
+          cognitoUsernameFromQuery,
+          residentId,
+          residentEmail,
+          residentEmail?.split('@')[0],
+        ].filter(Boolean) as string[];
+        
+        for (const username of usernamesToTry) {
+          try {
+            console.log(`Fallback: trying to remove ${username}...`);
+            await cognitoClient.send(
+              new AdminRemoveUserFromGroupCommand({
+                UserPoolId: userPoolId,
+                Username: username,
+                GroupName: 'resident',
+              })
+            );
+            console.log(`Fallback: successfully removed ${username} from Cognito resident group`);
+            removed = true;
+            break;
+          } catch (e: any) {
+            console.log(`Fallback: Could not remove ${username}: ${e.message}`);
+          }
+        }
+      }
+      
+      if (!removed) {
+        console.log('Warning: Could not remove user from Cognito resident group');
+      }
+    } else {
+      console.log('No user pool configured');
     }
 
     // Delete resident from DynamoDB (by path id, plus any alternate id we found)

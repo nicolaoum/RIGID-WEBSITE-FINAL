@@ -33,7 +33,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       zip: '',
       totalUnits: 8,
       availableUnits: 1,
-      imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80',
+      imageUrl: '/stadiou-building.jpg',
       amenities: ['Elevator', 'Parking', 'Balconies'],
     },
     {

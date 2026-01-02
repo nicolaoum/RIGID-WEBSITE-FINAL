@@ -199,7 +199,7 @@ export const handler = async (event: any) => {
 
           await cognitoClient.adminUpdateUserAttributes({
             UserPoolId: userPoolId,
-            Username: userEmail,
+            Username: username,
             UserAttributes: userAttributes,
           });
 
@@ -222,6 +222,8 @@ export const handler = async (event: any) => {
 
           console.log(`Automatically activated resident ${userEmail} from pending signup and updated DynamoDB status`);
           finalIsResident = true;
+          // Update local residentInfo status so we return the correct status
+          residentInfo.status = 'active';
         }
       } catch (error) {
         console.error('Error activating pending resident:', error);

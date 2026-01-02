@@ -74,12 +74,14 @@ export const handler = async (event: any) => {
         allResidents = dbResult.Items.map((item: any) => ({
           id: item.id,
           email: item.email,
-          name: item.email.split('@')[0], // Default to email prefix if no name
+          name: item.name || item.email?.split('@')[0] || 'Unknown', // Use stored name or default to email prefix
           unitNumber: item.unitNumber,
           buildingId: item.buildingId,
-          status: item.status, // 'pending' or 'active'
+          phoneNumber: item.phoneNumber,
+          status: item.status || 'pending', // 'pending' or 'active'
           source: 'dynamodb',
           createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
         }));
       }
     } catch (error) {
@@ -125,8 +127,9 @@ export const handler = async (event: any) => {
             
             return {
               id: existingResident?.id || attributes.email, // Use DynamoDB ID if available, fallback to email
+              cognitoUsername: user.Username, // Store the Cognito username for deletion
               email: attributes.email,
-              name: attributes.name,
+              name: attributes.name || user.Username,
               phoneNumber: attributes.phone_number,
               unitNumber: attributes['custom:apartmentNumber'],
               buildingId: attributes['custom:buildingId'],

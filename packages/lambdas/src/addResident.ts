@@ -46,7 +46,7 @@ export const handler = async (event: any) => {
 
     // Parse request body
     const body = JSON.parse(event.body || '{}');
-    const { email, unitNumber, buildingId, phoneNumber } = body;
+    const { email, unitNumber, buildingId, phoneNumber, name } = body;
 
     // Validate required fields
     if (!email || !unitNumber) {
@@ -146,6 +146,11 @@ export const handler = async (event: any) => {
       updatedAt: { S: now },
     };
 
+    // Add name if provided
+    if (name) {
+      dynamoItem.name = { S: name };
+    }
+
     // Add phone number if provided
     if (phoneNumber) {
       dynamoItem.phoneNumber = { S: phoneNumber };
@@ -158,24 +163,42 @@ export const handler = async (event: any) => {
 
     console.log(`Resident ${emailLower} added to DynamoDB with status 'pending'`);
 
-    // STEP 2: Try to add to Cognito if user already exists
+    // STEP 2: Try to add to Cognito if user already exists with this exact email
     let cognitoStatus = 'not-created-yet';
     try {
+      // Use listUsers with exact email filter to find user with this email
+      const listResult = await cognitoClient.listUsers({
+        UserPoolId: userPoolId,
+        Filter: `email = "${emailLower}"`,
+        Limit: 1,
+      });
+
+      // Check if we found a user with this exact email
+      if (!listResult.Users || listResult.Users.length === 0) {
+        console.log(`No Cognito user found with email ${emailLower}, treating as pending`);
+        throw { name: 'UserNotFoundException', message: 'User not found' };
+      }
+
+      const user = listResult.Users[0];
+      const username = user.Username!;
+      
+      // Double-check the email matches exactly
+      const userEmail = user.Attributes?.find(attr => attr.Name === 'email')?.Value;
+      if (!userEmail || userEmail.toLowerCase() !== emailLower) {
+        console.log(`User lookup returned different email (${userEmail}), treating as pending`);
+        throw { name: 'UserNotFoundException', message: 'Email mismatch' };
+      }
+
+      console.log(`Found Cognito user ${username} with matching email ${emailLower}`);
+
+      // Now add to resident group
       await cognitoClient.adminAddUserToGroup({
         UserPoolId: userPoolId,
-        Username: emailLower,
+        Username: username, // Use actual username, not email
         GroupName: 'resident',
       });
 
-      console.log(`User ${emailLower} added to resident group in Cognito`);
-
-      // Get the user details to retrieve their actual username
-      const userDetails = await cognitoClient.adminGetUser({
-        UserPoolId: userPoolId,
-        Username: emailLower,
-      });
-
-      const username = userDetails.Username || emailLower;
+      console.log(`User ${username} added to resident group in Cognito`);
 
       // Update user attributes to include name, apartment number, and building ID
       const userAttributes: any[] = [
@@ -211,11 +234,11 @@ export const handler = async (event: any) => {
 
       await cognitoClient.adminUpdateUserAttributes({
         UserPoolId: userPoolId,
-        Username: emailLower,
+        Username: username, // Use actual username, not email
         UserAttributes: userAttributes,
       });
 
-      console.log(`User ${emailLower} updated with apartment and building info`);
+      console.log(`User ${username} updated with apartment and building info`);
 
       // Update DynamoDB status to 'active'
       await dynamoClient.updateItem({

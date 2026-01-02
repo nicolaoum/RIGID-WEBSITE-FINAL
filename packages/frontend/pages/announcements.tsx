@@ -32,6 +32,7 @@ export default function Announcements() {
     type: 'info' as 'info' | 'warning' | 'urgent',
     buildingId: '',
   });
+  const [filterBuildingId, setFilterBuildingId] = useState('');
 
   useEffect(() => {
     loadData();
@@ -269,15 +270,38 @@ export default function Announcements() {
         {/* Announcements List */}
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900">Recent Announcements</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Recent Announcements</h2>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Filter by Building:</label>
+                <select
+                  value={filterBuildingId}
+                  onChange={(e) => setFilterBuildingId(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="">All Buildings</option>
+                  {buildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
           <div className="divide-y">
-            {notices.length === 0 ? (
+            {notices.filter((notice) => {
+              if (!filterBuildingId) return true;
+              return notice.buildingId === filterBuildingId || !notice.buildingId;
+            }).length === 0 ? (
               <div className="p-6 text-center text-gray-500">
-                No announcements yet. Create one to get started!
+                {filterBuildingId ? 'No announcements for this building.' : 'No announcements yet. Create one to get started!'}
               </div>
             ) : (
-              notices.map((notice) => (
+              notices.filter((notice) => {
+                if (!filterBuildingId) return true;
+                return notice.buildingId === filterBuildingId || !notice.buildingId;
+              }).map((notice) => (
                 <div key={notice.id} className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -294,7 +318,7 @@ export default function Announcements() {
                       <p className="text-gray-700 mb-2">{notice.content}</p>
                       <div className="text-sm text-gray-500">
                         Posted: {new Date(notice.publishedAt).toLocaleString()}
-                        {notice.buildingId && ` • Building: ${notice.buildingId}`}
+                        {notice.buildingId ? ` • Building: ${buildings.find(b => b.id === notice.buildingId)?.name || notice.buildingId}` : ' • All Buildings'}
                       </div>
                     </div>
                   </div>

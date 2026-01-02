@@ -1,0 +1,8 @@
+﻿aws : 
+At line:1 char:1
++ aws logs filter-log-events --log-group-name "/aws/lambda/RigidInfraSt ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode character '\u2705' in position 912: character maps to <undefined>

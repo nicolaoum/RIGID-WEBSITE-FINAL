@@ -84,9 +84,10 @@ export interface Resident {
   unitNumber?: string;
   buildingId?: string;
   phoneNumber?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'pending' | 'inactive';
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+  cognitoUsername?: string;
 }
 
 export interface ResidentCheck {
@@ -219,6 +220,7 @@ export const checkResident = async (): Promise<ResidentCheck> => {
   console.log('🔍 checkResident raw response:', result);
   console.log('🔍 residentInfo:', result.residentInfo);
   console.log('🔍 residentInfo.unitNumber:', result.residentInfo?.unitNumber);
+  console.log('🔍 residentInfo.buildingId:', result.residentInfo?.buildingId);
   return result;
 };
 
@@ -236,7 +238,8 @@ export const registerResident = async (registration: { email: string; unitNumber
  * Get all residents (admin/staff only)
  */
 export const getResidents = async (): Promise<Resident[]> => {
-  const response = await apiRequest<{ residents: Resident[] }>('/residents');
+  // Add cache-busting timestamp to force fresh data
+  const response = await apiRequest<{ residents: Resident[] }>(`/residents?_t=${Date.now()}`);
   return response.residents || [];
 };
 
@@ -263,8 +266,11 @@ export const getResidentInfo = async (): Promise<Resident | null> => {
 /**
  * Delete a resident (admin only)
  */
-export const deleteResident = async (residentId: string): Promise<{ success: boolean }> => {
-  return apiRequest(`/residents/${residentId}`, {
+export const deleteResident = async (residentId: string, cognitoUsername?: string): Promise<{ success: boolean }> => {
+  const url = cognitoUsername 
+    ? `/residents/${residentId}?cognitoUsername=${encodeURIComponent(cognitoUsername)}`
+    : `/residents/${residentId}`;
+  return apiRequest(url, {
     method: 'DELETE',
   });
 };
