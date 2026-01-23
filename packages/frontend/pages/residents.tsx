@@ -226,11 +226,11 @@ export default function Residents() {
                     <tr key={resident.email} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4 text-gray-900">{resident.name || 'N/A'}</td>
                       <td className="py-3 px-4 text-gray-700">{resident.email}</td>
-                      <td className="py-3 px-4 text-gray-700">{resident.apartmentNumber || 'N/A'}</td>
+                      <td className="py-3 px-4 text-gray-700">{resident.unitNumber || 'N/A'}</td>
                       <td className="py-3 px-4 text-gray-700">{resident.phoneNumber || 'N/A'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          resident.status === 'CONFIRMED' 
+                          resident.status === 'active' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
