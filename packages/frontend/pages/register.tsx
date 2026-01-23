@@ -27,7 +27,7 @@ export default function Register() {
 
     // Auto-populate apartment number from user profile
     if (currentUser?.['custom:apartmentNumber']) {
-      setFormData(prev => ({ ...prev, unitNumber: currentUser['custom:apartmentNumber'] }));
+      setFormData(prev => ({ ...prev, unitNumber: currentUser['custom:apartmentNumber'] || '' }));
     }
 
     const loadBuildings = async () => {
