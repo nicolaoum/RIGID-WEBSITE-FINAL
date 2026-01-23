@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, User, Ticket, Notice, Resident, Building } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, User, Ticket, Notice, Resident, Building } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -565,6 +565,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [syncingResidents, setSyncingResidents] = useState(false);
   const [newResident, setNewResident] = useState({
     email: '',
     name: '',
@@ -628,6 +629,27 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
     } catch (error) {
       console.error('Error adding resident:', error);
       alert('Failed to add resident: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleSyncPendingResidents = async () => {
+    if (syncingResidents) return;
+    
+    setSyncingResidents(true);
+    try {
+      const result = await syncPendingResidents();
+      console.log('Sync result:', result);
+      
+      // Refresh the residents list
+      const residentsData = await getResidents();
+      setResidents(residentsData);
+      
+      alert(`Sync complete!\n\nChecked: ${result.results.checked}\nActivated: ${result.results.activated}\nStill Pending: ${result.results.stillPending}\nErrors: ${result.results.errors}`);
+    } catch (error) {
+      console.error('Error syncing residents:', error);
+      alert('Failed to sync residents: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setSyncingResidents(false);
     }
   };
 
@@ -1067,12 +1089,32 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                 <h3 className="text-2xl font-bold">Resident Management</h3>
                 <p className="text-gray-300 mt-2">Manage approved residents who can access the portal</p>
               </div>
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="bg-white text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100 transition font-semibold"
-              >
-                {showAddForm ? 'Cancel' : '+ Add Resident'}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSyncPendingResidents}
+                  disabled={syncingResidents}
+                  className="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  title="Check if pending residents have completed signup and activate them"
+                >
+                  {syncingResidents ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Syncing...
+                    </>
+                  ) : (
+                    <>🔄 Sync Pending</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="bg-white text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100 transition font-semibold"
+                >
+                  {showAddForm ? 'Cancel' : '+ Add Resident'}
+                </button>
+              </div>
             </div>
 
             {showAddForm && (

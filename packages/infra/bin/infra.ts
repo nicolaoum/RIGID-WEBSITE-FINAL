@@ -9,7 +9,7 @@ const app = new cdk.App();
 new RigidInfraStack(app, 'RigidInfraStack', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+    region: 'eu-central-1',
   },
   description: 'Rigid Residential Web App Infrastructure',
 });

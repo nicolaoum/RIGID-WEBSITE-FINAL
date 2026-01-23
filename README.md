@@ -46,10 +46,10 @@ cp .env.local.template .env.local
 Edit `packages/frontend/.env.local` with your actual values:
 
 ```env
-NEXT_PUBLIC_API_URL=https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod
-NEXT_PUBLIC_COGNITO_HOSTED_UI=https://YOUR_DOMAIN.auth.us-east-1.amazoncognito.com/oauth2/authorize
-NEXT_PUBLIC_COGNITO_LOGOUT=https://YOUR_DOMAIN.auth.us-east-1.amazoncognito.com/logout
-NEXT_PUBLIC_COGNITO_TOKEN_URL=https://YOUR_DOMAIN.auth.us-east-1.amazoncognito.com/oauth2/token
+NEXT_PUBLIC_API_URL=https://YOUR_API_ID.execute-api.eu-central-1.amazonaws.com/prod
+NEXT_PUBLIC_COGNITO_HOSTED_UI=https://YOUR_DOMAIN.auth.eu-central-1.amazoncognito.com/oauth2/authorize
+NEXT_PUBLIC_COGNITO_LOGOUT=https://YOUR_DOMAIN.auth.eu-central-1.amazoncognito.com/logout
+NEXT_PUBLIC_COGNITO_TOKEN_URL=https://YOUR_DOMAIN.auth.eu-central-1.amazoncognito.com/oauth2/token
 NEXT_PUBLIC_COGNITO_CLIENT_ID=YOUR_CLIENT_ID
 NEXT_PUBLIC_REDIRECT_URI=http://localhost:3000/api/callback
 NEXT_PUBLIC_LOGOUT_REDIRECT_URI=http://localhost:3000

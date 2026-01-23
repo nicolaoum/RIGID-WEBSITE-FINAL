@@ -51,10 +51,10 @@ git push origin main
    Click "Advanced settings" → Add environment variables:
    
    ```
-   NEXT_PUBLIC_API_URL = https://fn3vprq951.execute-api.us-east-1.amazonaws.com/prod
+   NEXT_PUBLIC_API_URL = https://YOUR_API_ID.execute-api.eu-central-1.amazonaws.com/prod
    NEXT_PUBLIC_COGNITO_DOMAIN = rigid-residential-auth
-   NEXT_PUBLIC_COGNITO_USER_POOL_ID = us-east-1_0jpfXq1IU
-   NEXT_PUBLIC_COGNITO_CLIENT_ID = 205455frahsacolm9geoe3khc6
+   NEXT_PUBLIC_COGNITO_USER_POOL_ID = eu-central-1_YOUR_POOL_ID
+   NEXT_PUBLIC_COGNITO_CLIENT_ID = YOUR_COGNITO_CLIENT_ID
    NEXT_PUBLIC_REDIRECT_URI = https://rigidresidential.com/api/callback
    ```
 

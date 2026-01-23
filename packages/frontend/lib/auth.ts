@@ -264,6 +264,65 @@ const parseJWT = (token: string): User | null => {
 };
 
 /**
+ * Check if the stored token is valid for the current Cognito configuration
+ * This helps detect when tokens from a different region/pool are stored
+ */
+export const isTokenValidForCurrentConfig = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  const token = localStorage.getItem(ID_TOKEN_KEY);
+  if (!token) return false;
+  
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    
+    const payload = JSON.parse(jsonPayload);
+    
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      console.log('Token is expired');
+      return false;
+    }
+    
+    // Check if token issuer matches current Cognito configuration
+    // The issuer should contain the current user pool ID
+    const expectedPoolId = process.env.NEXT_PUBLIC_USER_POOL_ID;
+    if (expectedPoolId && payload.iss) {
+      const issuerContainsPoolId = payload.iss.includes(expectedPoolId);
+      if (!issuerContainsPoolId) {
+        console.log('Token issuer does not match current Cognito pool. Expected:', expectedPoolId, 'Got:', payload.iss);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error validating token:', error);
+    return false;
+  }
+};
+
+/**
+ * Clear all stored auth data (for invalid/stale tokens)
+ */
+export const clearAuthData = () => {
+  if (typeof window === 'undefined') return;
+  
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ID_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+};
+
+/**
  * Fetch user info from Cognito userinfo endpoint to get custom attributes
  */
 export const fetchUserInfoFromCognito = async (): Promise<User | null> => {

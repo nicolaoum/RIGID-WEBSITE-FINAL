@@ -28,9 +28,9 @@ git push origin main
    - Output directory: `.next`
 6. **Environment Variables** - Add these:
    ```
-   NEXT_PUBLIC_API_URL=https://fn3vprq951.execute-api.us-east-1.amazonaws.com/prod
+   NEXT_PUBLIC_API_URL=https://YOUR_API_ID.execute-api.eu-central-1.amazonaws.com/prod
    NEXT_PUBLIC_COGNITO_DOMAIN=rigid-residential-auth
-   NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_0jpfXq1IU
+   NEXT_PUBLIC_COGNITO_USER_POOL_ID=eu-central-1_YOUR_POOL_ID
    NEXT_PUBLIC_COGNITO_CLIENT_ID=<your-cognito-client-id>
    NEXT_PUBLIC_REDIRECT_URI=https://rigidresidential.com/api/callback
    ```
@@ -64,12 +64,12 @@ After getting your Amplify URL:
 ```bash
 # Update Cognito User Pool settings
 aws cognito-idp update-user-pool-client \
-  --user-pool-id us-east-1_0jpfXq1IU \
+  --user-pool-id eu-central-1_YOUR_POOL_ID \
   --client-id <your-client-id> \
   --callback-urls https://rigidresidential.com/api/callback \
   --logout-urls https://rigidresidential.com \
   --allowed-o-auth-flows-user-pool-client \
-  --region us-east-1
+  --region eu-central-1
 ```
 
 ### 5. Update CORS in API Gateway
@@ -80,7 +80,7 @@ npx cdk deploy RigidInfraStack --require-approval never
 ```
 
 ## Backend (Already Deployed)
-- API Gateway: https://fn3vprq951.execute-api.us-east-1.amazonaws.com/prod/
+- API Gateway: https://YOUR_API_ID.execute-api.eu-central-1.amazonaws.com/prod/
 - Lambda Functions: Deployed via CDK
 - DynamoDB Tables: rigid-buildings, rigid-units, rigid-notices, rigid-tickets
 

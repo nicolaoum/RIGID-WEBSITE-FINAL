@@ -17,8 +17,8 @@ export class RigidInfraStack extends cdk.Stack {
     // ========================================
     // Configuration - Update these values!
     // ========================================
-    const existingUserPoolId = process.env.COGNITO_USER_POOL_ID || 'us-east-1_0jpfXq1IU';
-    const existingUserPoolClientId = process.env.COGNITO_CLIENT_ID || '205455frahsacolm9geoe3khc6';
+    const existingUserPoolId = process.env.COGNITO_USER_POOL_ID || 'eu-central-1_bLlAnT4dg';
+    const existingUserPoolClientId = process.env.COGNITO_CLIENT_ID || '304ra92g7gp9loo2f29pr15aq5';
 
     // Import existing Cognito User Pool
     const userPool = cognito.UserPool.fromUserPoolId(
@@ -101,7 +101,7 @@ export class RigidInfraStack extends cdk.Stack {
     // S3 Bucket for Images
     // ========================================
     const imagesBucket = new s3.Bucket(this, 'ImagesBucket', {
-      bucketName: `rigid-images-${this.account}`,
+      bucketName: `rigid-images-${this.account}-${this.region}`,
       publicReadAccess: true,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicAcls: false,
@@ -434,6 +434,38 @@ export class RigidInfraStack extends cdk.Stack {
     });
     cleanupRule.addTarget(new targets.LambdaFunction(cleanupClosedTicketsLambda));
 
+    // Sync pending residents Lambda (API + scheduled)
+    const syncPendingResidentsLambda = new lambda.Function(this, 'SyncPendingResidentsFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'syncPendingResidents.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadWriteData(syncPendingResidentsLambda);
+
+    // Grant Cognito permissions to sync pending residents
+    syncPendingResidentsLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:ListUsers',
+          'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:AdminUpdateUserAttributes',
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // EventBridge rule to sync pending residents daily at 6 AM UTC
+    const syncPendingRule = new events.Rule(this, 'SyncPendingResidentsRule', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '6' }),
+      description: 'Daily sync of pending residents who have completed signup',
+    });
+    syncPendingRule.addTarget(new targets.LambdaFunction(syncPendingResidentsLambda));
+
     // ========================================
     // API Gateway
     // ========================================
@@ -566,6 +598,13 @@ export class RigidInfraStack extends cdk.Stack {
     // POST /residents/register (self-registration - authenticated)
     const registerResource = residentsResource.addResource('register');
     registerResource.addMethod('POST', new apigateway.LambdaIntegration(registerResidentLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // POST /residents/sync - Sync pending residents (staff only)
+    const syncResource = residentsResource.addResource('sync');
+    syncResource.addMethod('POST', new apigateway.LambdaIntegration(syncPendingResidentsLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

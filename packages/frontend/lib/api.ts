@@ -286,3 +286,12 @@ export const deleteTicket = async (ticketId: string): Promise<{ success: boolean
     method: 'DELETE',
   });
 };
+
+/**
+ * Sync pending residents - checks if pending residents have signed up and activates them (admin/staff only)
+ */
+export const syncPendingResidents = async (): Promise<{ success: boolean; message: string; results: { checked: number; activated: number; stillPending: number; errors: number } }> => {
+  return apiRequest('/residents/sync', {
+    method: 'POST',
+  });
+};
