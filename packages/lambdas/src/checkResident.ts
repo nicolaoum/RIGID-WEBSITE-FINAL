@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -64,11 +64,31 @@ export const handler = async (event: any) => {
 
         if (result.Items && result.Items.length > 0) {
           const residentInfo = result.Items[0];
+          
+          // Fetch building name if buildingId exists
+          let buildingName = null;
+          if (residentInfo.buildingId && residentInfo.buildingId !== 'unassigned') {
+            try {
+              const buildingResult = await docClient.send(
+                new GetCommand({
+                  TableName: process.env.BUILDINGS_TABLE,
+                  Key: { id: residentInfo.buildingId },
+                })
+              );
+              if (buildingResult.Item) {
+                buildingName = buildingResult.Item.name;
+              }
+            } catch (buildingError) {
+              console.error('Error fetching building name:', buildingError);
+            }
+          }
+          
           residentDataToReturn = {
             id: residentInfo.id,
             email: residentInfo.email,
             unitNumber: residentInfo.unitNumber,
             buildingId: residentInfo.buildingId,
+            buildingName: buildingName,
             status: residentInfo.status,
             createdAt: residentInfo.createdAt,
             updatedAt: residentInfo.updatedAt,
@@ -237,11 +257,30 @@ export const handler = async (event: any) => {
     // Extract resident details to return to frontend
     let residentDataToReturn = null;
     if (residentInfo) {
+      // Fetch building name if buildingId exists
+      let buildingName = null;
+      if (residentInfo.buildingId && residentInfo.buildingId !== 'unassigned') {
+        try {
+          const buildingResult = await docClient.send(
+            new GetCommand({
+              TableName: process.env.BUILDINGS_TABLE,
+              Key: { id: residentInfo.buildingId },
+            })
+          );
+          if (buildingResult.Item) {
+            buildingName = buildingResult.Item.name;
+          }
+        } catch (buildingError) {
+          console.error('Error fetching building name:', buildingError);
+        }
+      }
+      
       residentDataToReturn = {
         id: residentInfo.id,
         email: residentInfo.email,
         unitNumber: residentInfo.unitNumber,
         buildingId: residentInfo.buildingId,
+        buildingName: buildingName,
         status: residentInfo.status,
         createdAt: residentInfo.createdAt,
         updatedAt: residentInfo.updatedAt,

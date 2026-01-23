@@ -401,6 +401,7 @@ export class RigidInfraStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
     residentsTable.grantReadData(checkResidentLambda);
+    buildingsTable.grantReadData(checkResidentLambda);
 
     // POST /residents/register (self-registration - authenticated)
     const registerResidentLambda = new lambda.Function(this, 'RegisterResidentFunction', {

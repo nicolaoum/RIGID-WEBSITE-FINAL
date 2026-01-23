@@ -298,21 +298,29 @@ function ResidentPortal({
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     residentName: '',
     unitNumber: '',
+    buildingId: '',
+    buildingName: '',
     phoneNumber: '',
     allowEntry: false,
   });
 
-  // Update unitNumber when residentInfo or user changes
+  // Update unitNumber and building when residentInfo or user changes
   // Try residentInfo first, then fall back to user custom attribute
   useEffect(() => {
     console.log('useEffect triggered - residentInfo:', residentInfo, 'user:', user);
     
     // Try multiple sources in order
     let unitNum: string | undefined;
+    let buildingId: string | undefined;
+    let buildingName: string | undefined;
     
     if (residentInfo?.unitNumber) {
       unitNum = residentInfo.unitNumber;
+      buildingId = residentInfo.buildingId;
+      buildingName = residentInfo.buildingName;
       console.log('✅ Using unitNumber from residentInfo:', unitNum);
+      console.log('✅ Using buildingId from residentInfo:', buildingId);
+      console.log('✅ Using buildingName from residentInfo:', buildingName);
     } else if (
       // @ts-ignore
       user?.['custom:apartmentNumber']
@@ -325,7 +333,12 @@ function ResidentPortal({
     }
     
     if (unitNum) {
-      setTicketForm(prev => ({ ...prev, unitNumber: unitNum || '' }));
+      setTicketForm(prev => ({ 
+        ...prev, 
+        unitNumber: unitNum || '',
+        buildingId: buildingId || '',
+        buildingName: buildingName || ''
+      }));
     }
   }, [residentInfo, user]);
 
@@ -341,6 +354,8 @@ function ResidentPortal({
       priority: 'medium',
       residentName: '',
       unitNumber: '',
+      buildingId: '',
+      buildingName: '',
       phoneNumber: '',
       allowEntry: false,
     });
@@ -426,6 +441,17 @@ function ResidentPortal({
                   onChange={(e) => setTicketForm({ ...ticketForm, residentName: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                   placeholder="Full name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                <input
+                  type="text"
+                  required
+                  value={ticketForm.buildingName || ''}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  placeholder="Your building"
                 />
               </div>
               <div>
@@ -928,8 +954,17 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                     </div>
                     
                     <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Building</label>
+                      <p className="text-gray-900">{selectedTicket.buildingName || 'N/A'}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedTicket.unitNumber && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
                       <label className="block text-sm font-semibold text-gray-600 mb-1">Unit Number</label>
-                      <p className="text-gray-900">{selectedTicket.unitNumber || 'N/A'}</p>
+                      <p className="text-gray-900">{selectedTicket.unitNumber}</p>
                     </div>
                   </div>
                 )}

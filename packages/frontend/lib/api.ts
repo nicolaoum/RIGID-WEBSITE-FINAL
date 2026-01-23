@@ -55,6 +55,8 @@ export interface Ticket {
   status?: 'open' | 'in-progress' | 'resolved' | 'closed';
   residentName?: string;
   unitNumber?: string;
+  buildingId?: string;
+  buildingName?: string;
   phoneNumber?: string;
   allowEntry?: boolean;
   createdAt?: string;
@@ -83,6 +85,7 @@ export interface Resident {
   name: string;
   unitNumber?: string;
   buildingId?: string;
+  buildingName?: string;
   phoneNumber?: string;
   status: 'active' | 'pending' | 'inactive';
   createdAt: string;

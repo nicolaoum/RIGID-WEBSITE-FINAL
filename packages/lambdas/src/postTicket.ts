@@ -1,7 +1,6 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { randomUUID } from 'crypto';
+import { DynamoDBDocumentClient, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -21,7 +20,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     console.log('User:', { userId, userEmail });
 
     const body = JSON.parse(event.body || '{}');
-    const { subject, description, priority, residentName, unitNumber, phoneNumber, allowEntry } = body;
+    const { subject, description, priority, residentName, unitNumber, buildingId, buildingName, phoneNumber, allowEntry } = body;
 
     // Validate required fields
     if (!subject || !description || !priority) {
@@ -39,8 +38,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Generate ticket ID
-    const ticketId = randomUUID();
+    // Generate sequential ticket ID
+    // Get all existing tickets to find the highest ID number
+    let ticketNumber = 1;
+    try {
+      const scanResult = await docClient.send(
+        new ScanCommand({
+          TableName: process.env.TICKETS_TABLE,
+          ProjectionExpression: 'id',
+        })
+      );
+
+      if (scanResult.Items && scanResult.Items.length > 0) {
+        // Extract numeric IDs and find the maximum
+        const numericIds = scanResult.Items
+          .map(item => {
+            const id = item.id;
+            // Try to parse as integer
+            const num = parseInt(id, 10);
+            return isNaN(num) ? 0 : num;
+          })
+          .filter(num => num > 0);
+
+        if (numericIds.length > 0) {
+          ticketNumber = Math.max(...numericIds) + 1;
+        }
+      }
+    } catch (scanError) {
+      console.error('Error scanning for max ticket ID:', scanError);
+      // If scan fails, use timestamp-based ID as fallback
+      ticketNumber = Date.now();
+    }
+
+    const ticketId = ticketNumber.toString();
     const now = new Date().toISOString();
 
     // Create ticket object
@@ -54,6 +84,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       status: 'open',
       residentName,
       unitNumber,
+      buildingId,
+      buildingName,
       phoneNumber,
       allowEntry: allowEntry || false,
       createdAt: now,
