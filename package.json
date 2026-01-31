@@ -13,6 +13,9 @@
     "install:all": "npm install",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
   },
+  "dependencies": {
+    "next": "^14.2.0"
+  },
   "devDependencies": {
     "typescript": "^5.3.3"
   },
