@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
+  // Use default Next.js output for Amplify SSR
   distDir: '.next',
 }
 
