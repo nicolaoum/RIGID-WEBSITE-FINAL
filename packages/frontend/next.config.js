@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
+  // Removed 'standalone' output for Amplify compatibility
   distDir: '.next',
 }
 
