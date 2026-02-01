@@ -9,10 +9,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).send('Cognito Hosted UI configuration is missing');
   }
 
-  const url = new URL(HOSTED_UI);
+  // Must use /oauth2/authorize endpoint for Cognito hosted UI
+  const url = new URL(`${HOSTED_UI}/oauth2/authorize`);
   url.searchParams.set('client_id', CLIENT_ID);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'openid email');
+  url.searchParams.set('scope', 'openid email profile');
   url.searchParams.set('redirect_uri', REDIRECT_URI);
   
   res.redirect(url.toString());
