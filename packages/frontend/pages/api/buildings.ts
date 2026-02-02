@@ -21,7 +21,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       zip: '',
       totalUnits: 12,
       availableUnits: 2,
-      imageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
+      imageUrl: '/pierias-building.jpg',
       amenities: ['Elevator', 'Parking', 'Storage'],
     },
     {
