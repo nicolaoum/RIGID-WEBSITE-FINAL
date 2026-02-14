@@ -3,6 +3,22 @@ import Link from 'next/link';
 import { Building, getBuildings } from '../lib/api';
 import { getCurrentUser } from '../lib/auth';
 
+// Map building names to local images in /public/
+const LOCAL_BUILDING_IMAGES: Record<string, string> = {
+  'pierias': '/pierias-building.jpg',
+  'stadiou': '/stadiou-building.jpg',
+  // Add more as images are added, e.g.:
+  // 'ektoros': '/ektoros-building.jpg',
+};
+
+function getBuildingImage(building: Building): string | undefined {
+  const nameLower = building.name.toLowerCase();
+  for (const [key, path] of Object.entries(LOCAL_BUILDING_IMAGES)) {
+    if (nameLower.includes(key)) return path;
+  }
+  return building.imageUrl;
+}
+
 export default function BuildingsPage() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -79,8 +95,8 @@ export default function BuildingsPage() {
             {buildings.map((building) => (
               <div key={building.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                 <div className="h-56 bg-gradient-to-br from-sky-100 to-sky-200 flex items-center justify-center">
-                  {building.imageUrl ? (
-                    <img src={building.imageUrl} alt={building.name} className="w-full h-full object-cover object-center" />
+                  {getBuildingImage(building) ? (
+                    <img src={getBuildingImage(building)} alt={building.name} className="w-full h-full object-cover object-center" />
                   ) : (
                     <span className="text-gray-400 text-lg">🏢</span>
                   )}
