@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { Building, getBuildings } from '../lib/api';
 import { getCurrentUser } from '../lib/auth';
 
-// Map building names to local images in /public/
-const LOCAL_BUILDING_IMAGES: Record<string, string> = {
-  'pierias': '/pierias-building.jpg',
-  'stadiou': '/stadiou-building.jpg',
-  // Add more as images are added, e.g.:
-  // 'ektoros': '/ektoros-building.jpg',
+// Static image imports — bundled by Next.js into /_next/static/
+import pieriasImg from '../public/pierias-building.jpg';
+import stadiouImg from '../public/stadiou-building.jpg';
+
+// Map building name keywords to imported images
+const LOCAL_BUILDING_IMAGES: Record<string, { src: string }> = {
+  'pierias': pieriasImg,
+  'stadiou': stadiouImg,
 };
 
 function getBuildingImage(building: Building): string | undefined {
   const nameLower = building.name.toLowerCase();
-  for (const [key, path] of Object.entries(LOCAL_BUILDING_IMAGES)) {
-    if (nameLower.includes(key)) return path;
+  for (const [key, img] of Object.entries(LOCAL_BUILDING_IMAGES)) {
+    if (nameLower.includes(key)) return img.src;
   }
   return building.imageUrl;
 }
