@@ -142,15 +142,15 @@ export default function Home() {
                 href={`/units?building=${building.id}`}
                 className="group block bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-full focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-4 focus:ring-offset-gray-50"
               >
-                <div className="h-72 bg-gray-100 flex items-center justify-center">
+                <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
                   {getBuildingImage(building) ? (
                     <img
                       src={getBuildingImage(building)}
                       alt={building.name}
-                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   ) : (
-                    <span className="text-gray-500 text-6xl">🏢</span>
+                    <span className="text-gray-500 text-6xl flex items-center justify-center h-full">🏢</span>
                   )}
                 </div>
                 

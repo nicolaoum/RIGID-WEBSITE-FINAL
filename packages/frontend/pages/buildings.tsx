@@ -96,11 +96,11 @@ export default function BuildingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {buildings.map((building) => (
               <div key={building.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-                <div className="h-72 bg-gray-100 flex items-center justify-center">
+                <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
                   {getBuildingImage(building) ? (
-                    <img src={getBuildingImage(building)} alt={building.name} className="w-full h-full object-contain" />
+                    <img src={getBuildingImage(building)} alt={building.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-gray-400 text-lg">🏢</span>
+                    <span className="text-gray-400 text-lg flex items-center justify-center h-full">🏢</span>
                   )}
                 </div>
                 <div className="p-6">
