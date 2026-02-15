@@ -147,7 +147,7 @@ export default function Home() {
                     <img
                       src={getBuildingImage(building)}
                       alt={building.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      className="w-full h-full object-cover object-[center_35%] transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   ) : (
                     <span className="text-gray-500 text-6xl flex items-center justify-center h-full">🏢</span>

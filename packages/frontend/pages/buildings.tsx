@@ -98,7 +98,7 @@ export default function BuildingsPage() {
               <div key={building.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                 <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
                   {getBuildingImage(building) ? (
-                    <img src={getBuildingImage(building)} alt={building.name} className="w-full h-full object-cover" />
+                    <img src={getBuildingImage(building)} alt={building.name} className="w-full h-full object-cover object-[center_35%]" />
                   ) : (
                     <span className="text-gray-400 text-lg flex items-center justify-center h-full">🏢</span>
                   )}
