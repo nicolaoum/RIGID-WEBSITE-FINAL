@@ -193,20 +193,12 @@ export default function UnitsPage() {
                   </button>
                 </>
               ) : (
-                <>
-                  <Link
-                    href="/register"
-                    className="text-gray-700 hover:text-gray-900 font-semibold"
-                  >
-                    Sign Up
-                  </Link>
-                  <a
-                    href="/api/login"
-                    className="text-gray-700 hover:text-gray-900 font-semibold"
-                  >
-                    Login
-                  </a>
-                </>
+                <a
+                  href="/api/login"
+                  className="text-gray-700 hover:text-gray-900 font-semibold"
+                >
+                  Login
+                </a>
               )}
             </div>
           </div>

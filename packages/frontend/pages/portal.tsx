@@ -253,12 +253,7 @@ function Navigation() {
                 <button onClick={handleLogout} className="text-base font-semibold px-5 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all">Logout</button>
               </>
             ) : (
-              <>
-                <Link href="/register" className="text-base font-semibold px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all">
-                  Sign Up
-                </Link>
-                <a href="/api/login" className="text-base font-semibold px-6 py-3 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all">Login</a>
-              </>
+              <a href="/api/login" className="text-base font-semibold px-6 py-3 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all">Login</a>
             )}
           </div>
         </div>
