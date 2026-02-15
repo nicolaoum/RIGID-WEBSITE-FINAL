@@ -97,6 +97,15 @@ export class RigidInfraStack extends cdk.Stack {
       partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
     });
 
+    // Inquiries Table
+    const inquiriesTable = new dynamodb.Table(this, 'InquiriesTable', {
+      tableName: 'rigid-inquiries',
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+    });
+
     // ========================================
     // S3 Bucket for Images
     // ========================================
@@ -137,6 +146,7 @@ export class RigidInfraStack extends cdk.Stack {
       NOTICES_TABLE: noticesTable.tableName,
       RESIDENTS_TABLE: residentsTable.tableName,
       RESIDENTS_TABLE_NAME: residentsTable.tableName,
+      INQUIRIES_TABLE: inquiriesTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       NODE_ENV: 'production',
@@ -205,6 +215,19 @@ export class RigidInfraStack extends cdk.Stack {
       environment: lambdaEnvironment,
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
+    inquiriesTable.grantWriteData(postInquiryLambda);
+
+    // GET /inquiries (staff only - authenticated)
+    const getInquiriesLambda = new lambda.Function(this, 'GetInquiriesFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'getInquiries.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inquiriesTable.grantReadData(getInquiriesLambda);
 
     // GET /tickets (authenticated)
     const getTicketsLambda = new lambda.Function(this, 'GetTicketsFunction', {
@@ -521,6 +544,10 @@ export class RigidInfraStack extends cdk.Stack {
 
     const inquiriesResource = api.root.addResource('inquiries');
     inquiriesResource.addMethod('POST', new apigateway.LambdaIntegration(postInquiryLambda));
+    inquiriesResource.addMethod('GET', new apigateway.LambdaIntegration(getInquiriesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
 
     const uploadUrlResource = api.root.addResource('upload-url');
     uploadUrlResource.addMethod('POST', new apigateway.LambdaIntegration(getUploadUrlLambda), {

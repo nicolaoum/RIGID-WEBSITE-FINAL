@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, User, Ticket, Notice, Resident, Building } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, User, Ticket, Notice, Resident, Building, Inquiry } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -547,6 +547,8 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [localTickets, setLocalTickets] = useState<Ticket[]>(tickets);
   const [showResidentTab, setShowResidentTab] = useState(false);
   const [showAnnouncementsTab, setShowAnnouncementsTab] = useState(false);
+  const [showInquiriesTab, setShowInquiriesTab] = useState(false);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('all');
@@ -572,6 +574,21 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
       return () => clearInterval(interval);
     }
   }, [showResidentTab]);
+
+  useEffect(() => {
+    if (showInquiriesTab) {
+      loadInquiries();
+    }
+  }, [showInquiriesTab]);
+
+  const loadInquiries = async () => {
+    try {
+      const data = await getInquiries();
+      setInquiries(data);
+    } catch (error) {
+      console.error('Error loading inquiries:', error);
+    }
+  };
 
   const loadResidents = async () => {
     try {
@@ -729,9 +746,9 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
         {/* Tab Buttons */}
         <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <button
-            onClick={() => { setShowResidentTab(false); setShowAnnouncementsTab(false); }}
+            onClick={() => { setShowResidentTab(false); setShowAnnouncementsTab(false); setShowInquiriesTab(false); }}
             className={`px-8 py-3 rounded-lg font-semibold transition ${
-              !showResidentTab && !showAnnouncementsTab
+              !showResidentTab && !showAnnouncementsTab && !showInquiriesTab
                 ? 'bg-white text-gray-900'
                 : 'bg-gray-700 text-white hover:bg-gray-600'
             }`}
@@ -739,7 +756,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             🎫 Tickets
           </button>
           <button
-            onClick={() => { setShowResidentTab(true); setShowAnnouncementsTab(false); }}
+            onClick={() => { setShowResidentTab(true); setShowAnnouncementsTab(false); setShowInquiriesTab(false); }}
             className={`px-8 py-3 rounded-lg font-semibold transition ${
               showResidentTab
                 ? 'bg-white text-gray-900'
@@ -749,7 +766,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             👥 Residents
           </button>
           <button
-            onClick={() => { setShowAnnouncementsTab(true); setShowResidentTab(false); }}
+            onClick={() => { setShowAnnouncementsTab(true); setShowResidentTab(false); setShowInquiriesTab(false); }}
             className={`px-8 py-3 rounded-lg font-semibold transition ${
               showAnnouncementsTab
                 ? 'bg-white text-gray-900'
@@ -758,9 +775,78 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
           >
             📢 Announcements
           </button>
+          <button
+            onClick={() => { setShowInquiriesTab(true); setShowResidentTab(false); setShowAnnouncementsTab(false); }}
+            className={`px-8 py-3 rounded-lg font-semibold transition ${
+              showInquiriesTab
+                ? 'bg-white text-gray-900'
+                : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+          >
+            📩 Inquiries
+            {inquiries.filter(i => i.status === 'new').length > 0 && (
+              <span className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded-full text-xs">
+                {inquiries.filter(i => i.status === 'new').length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {showAnnouncementsTab ? (
+        {showInquiriesTab ? (
+          /* Inquiries Section */
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">Contact Form Inquiries</h3>
+              <button
+                onClick={loadInquiries}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold text-sm"
+              >
+                ↻ Refresh
+              </button>
+            </div>
+            {inquiries.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <p className="text-xl mb-2">No inquiries yet</p>
+                <p className="text-sm">Inquiries submitted through the contact form will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {inquiries.map((inquiry) => (
+                  <div key={inquiry.id} className={`bg-gray-800 rounded-xl p-6 border ${inquiry.status === 'new' ? 'border-yellow-500/50' : 'border-gray-700'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-bold text-lg">{inquiry.subject || 'No Subject'}</h4>
+                        <p className="text-gray-400 text-sm">
+                          From <span className="text-white font-medium">{inquiry.name}</span> — <a href={`mailto:${inquiry.email}`} className="text-blue-400 hover:text-blue-300">{inquiry.email}</a>
+                          {inquiry.phone && <span className="ml-2">· {inquiry.phone}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          inquiry.status === 'new' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                          inquiry.status === 'replied' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          'bg-gray-600/50 text-gray-300 border border-gray-500/30'
+                        }`}>
+                          {inquiry.status || 'new'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-gray-300 text-sm leading-relaxed bg-gray-900/50 rounded-lg p-4">{inquiry.message}</p>
+                    <div className="mt-3 flex gap-2">
+                      <a href={`mailto:${inquiry.email}?subject=Re: ${inquiry.subject || 'Your inquiry'}`}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition font-semibold">
+                        ↗ Reply via Email
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : showAnnouncementsTab ? (
           /* Announcements Section */
           <div className="text-center py-8">
             <Link 

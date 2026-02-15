@@ -36,7 +36,7 @@ export default function Contact() {
     e.preventDefault();
     setSending(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiry`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

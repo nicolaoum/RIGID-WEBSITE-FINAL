@@ -39,11 +39,15 @@ export interface Building {
 }
 
 export interface Inquiry {
+  id?: string;
   name: string;
   email: string;
   phone?: string;
+  subject?: string;
   unitId?: string;
   message: string;
+  status?: 'new' | 'read' | 'replied';
+  createdAt?: string;
 }
 
 export interface Ticket {
@@ -152,6 +156,13 @@ export const submitInquiry = async (inquiry: Inquiry): Promise<{ success: boolea
     method: 'POST',
     body: JSON.stringify(inquiry),
   });
+};
+
+/**
+ * Get all inquiries (staff/admin only)
+ */
+export const getInquiries = async (): Promise<Inquiry[]> => {
+  return apiRequest<Inquiry[]>('/inquiries');
 };
 
 /**
