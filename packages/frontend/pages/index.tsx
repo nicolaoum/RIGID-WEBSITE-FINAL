@@ -66,8 +66,9 @@ export default function Home() {
         console.error('Failed to parse user token:', error);
       }
       
-      // Clean up URL
-      router.replace('/', undefined, { shallow: true });
+      // Full reload to clean URL and refresh nav with user data
+      window.location.href = '/';
+      return;
     }
     
     const loadBuildings = async () => {
