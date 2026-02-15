@@ -391,12 +391,20 @@ function Navigation() {
                 </button>
               </>
             ) : (
-              <a
-                href="/api/login"
-                className={`text-base font-semibold px-6 py-3 rounded-lg transition-all ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white/10 text-white border border-white/20 hover:bg-white/20 backdrop-blur-sm'}`}
-              >
-                Login
-              </a>
+              <>
+                <Link
+                  href="/register"
+                  className={`text-base font-semibold px-5 py-2.5 rounded-lg transition-all ${scrolled ? 'border border-slate-300 text-slate-700 hover:bg-slate-100' : 'border border-white/40 text-white hover:bg-white/10'}`}
+                >
+                  Sign Up
+                </Link>
+                <a
+                  href="/api/login"
+                  className={`text-base font-semibold px-6 py-3 rounded-lg transition-all ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white/10 text-white border border-white/20 hover:bg-white/20 backdrop-blur-sm'}`}
+                >
+                  Login
+                </a>
+              </>
             )}
           </div>
         </div>
