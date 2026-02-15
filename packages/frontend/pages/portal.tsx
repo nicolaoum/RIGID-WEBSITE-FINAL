@@ -142,24 +142,27 @@ export default function Portal() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
+          <p className="text-slate-400 font-medium">Loading portal...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <Navigation />
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Portal Access</h2>
-            <p className="text-gray-600 mb-8">Please log in to access the resident portal</p>
-            <a
-              href="/api/login"
-              className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-            >
+        <div className="max-w-lg mx-auto px-4 py-24">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl p-10 text-center">
+            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Portal Access</h2>
+            <p className="text-slate-500 mb-8">Please log in to access the resident portal</p>
+            <a href="/api/login" className="inline-flex items-center justify-center bg-emerald-500 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-emerald-500/25">
               Log In
             </a>
           </div>
@@ -170,25 +173,24 @@ export default function Portal() {
 
   if (accessDenied) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <Navigation />
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <div className="text-6xl mb-4">🚫</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Access Restricted</h2>
-            <p className="text-gray-600 mb-4">
+        <div className="max-w-lg mx-auto px-4 py-24">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl p-10 text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Access Restricted</h2>
+            <p className="text-slate-500 mb-2">
               This portal is only accessible to approved residents of Rigid Residential.
             </p>
-            <p className="text-gray-600 mb-8">
+            <p className="text-slate-500 mb-8">
               If you believe this is an error, please contact management at{' '}
-              <a href="mailto:info@rigidresidential.com" className="text-blue-600 hover:text-blue-800">
+              <a href="mailto:info@rigidresidential.com" className="text-emerald-600 hover:text-emerald-700 font-medium">
                 info@rigidresidential.com
               </a>
             </p>
-            <Link
-              href="/"
-              className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-            >
+            <Link href="/" className="inline-flex items-center justify-center bg-slate-900 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-slate-800 transition-all duration-300">
               Return Home
             </Link>
           </div>
@@ -198,7 +200,7 @@ export default function Portal() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${isStaff ? 'bg-gray-50' : 'bg-white'}`}>
       <Navigation />
       
       {isStaff ? (
@@ -213,10 +215,14 @@ export default function Portal() {
 // Navigation Component
 function Navigation() {
   const [user, setUser] = useState<any>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
     setUser(currentUser);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleLogout = () => {
@@ -228,46 +234,26 @@ function Navigation() {
   };
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-lg' : 'bg-white shadow-sm'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex justify-between items-center">
-          <Link href="/" className="text-2xl font-bold text-gray-900">
-            Rigid Residential
-          </Link>
-          <div className="hidden md:flex space-x-1">
-            <Link href="/" className="text-gray-700 hover:text-gray-900 px-3 py-2">
-              Home
-            </Link>
-            <Link href="/buildings" className="text-gray-700 hover:text-gray-900 px-3 py-2">
-              Buildings
-            </Link>
-            <Link href="/portal" className="text-gray-700 hover:text-gray-900 px-3 py-2">
-              Portal
-            </Link>
-            <Link href="/contact" className="text-gray-700 hover:text-gray-900 px-3 py-2">
-              Contact
-            </Link>
+          <Link href="/" className="text-2xl font-extrabold tracking-tight text-slate-900">RIGID</Link>
+          <div className="hidden md:flex items-center space-x-8">
+            {['Home', 'Buildings', 'Portal', 'Contact'].map((item) => (
+              <Link key={item} href={item === 'Home' ? '/' : `/${item.toLowerCase()}`}
+                className={`text-sm font-medium tracking-wide transition-colors ${item === 'Portal' ? 'text-emerald-600' : 'text-slate-600 hover:text-slate-900'}`}>
+                {item}
+              </Link>
+            ))}
           </div>
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <span className="text-gray-700 font-medium">
-                  {user.email}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
-                >
-                  Logout
-                </button>
+                <span className="text-sm font-medium text-slate-600 hidden sm:inline">{user.email}</span>
+                <button onClick={handleLogout} className="text-sm font-semibold px-4 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all">Logout</button>
               </>
             ) : (
-              <a
-                href="/api/login"
-                className="text-gray-700 hover:text-gray-900 font-semibold"
-              >
-                Login
-              </a>
+              <a href="/api/login" className="text-sm font-semibold px-5 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all">Login</a>
             )}
           </div>
         </div>
@@ -305,11 +291,8 @@ function ResidentPortal({
   });
 
   // Update unitNumber and building when residentInfo or user changes
-  // Try residentInfo first, then fall back to user custom attribute
   useEffect(() => {
     console.log('useEffect triggered - residentInfo:', residentInfo, 'user:', user);
-    
-    // Try multiple sources in order
     let unitNum: string | undefined;
     let buildingId: string | undefined;
     let buildingName: string | undefined;
@@ -318,18 +301,12 @@ function ResidentPortal({
       unitNum = residentInfo.unitNumber;
       buildingId = residentInfo.buildingId;
       buildingName = residentInfo.buildingName;
-      console.log('✅ Using unitNumber from residentInfo:', unitNum);
-      console.log('✅ Using buildingId from residentInfo:', buildingId);
-      console.log('✅ Using buildingName from residentInfo:', buildingName);
     } else if (
       // @ts-ignore
       user?.['custom:apartmentNumber']
     ) {
       // @ts-ignore
       unitNum = user['custom:apartmentNumber'];
-      console.log('✅ Using unitNumber from user custom attr:', unitNum);
-    } else {
-      console.log('❌ NO APARTMENT NUMBER FOUND - residentInfo:', residentInfo, 'user attr:', (user as any)?.['custom:apartmentNumber']);
     }
     
     if (unitNum) {
@@ -361,196 +338,205 @@ function ResidentPortal({
     });
   };
 
+  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none";
+
+  const priorityColors: Record<string, string> = {
+    low: 'bg-slate-100 text-slate-700',
+    medium: 'bg-amber-100 text-amber-700',
+    high: 'bg-orange-100 text-orange-700',
+    urgent: 'bg-red-100 text-red-700',
+  };
+
+  const statusColors: Record<string, string> = {
+    resolved: 'bg-emerald-100 text-emerald-700',
+    'in-progress': 'bg-blue-100 text-blue-700',
+    open: 'bg-slate-100 text-slate-700',
+  };
+
   return (
-    <section className="py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Resident Portal</h2>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Notices */}
-          <div className="bg-white rounded-xl p-6 shadow-lg">
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">📢 Notices</h3>
-            <div className="space-y-4">
-              {notices.map((notice) => (
-                <div
-                  key={notice.id}
-                  className={`p-4 rounded-lg ${
-                    notice.type === 'urgent'
-                      ? 'bg-red-50 border border-red-200'
-                      : notice.type === 'warning'
-                      ? 'bg-yellow-50 border border-yellow-200'
-                      : 'bg-blue-50 border border-blue-200'
-                  }`}
-                >
-                  <h4 className="font-semibold text-gray-900 mb-1">{notice.title}</h4>
-                  <p className="text-sm text-gray-700 mb-2">{notice.content}</p>
-                  <p className="text-xs text-gray-500">{new Date(notice.publishedAt).toLocaleDateString()}</p>
+    <>
+      {/* Header */}
+      <section className="pt-28 pb-12 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <span className="inline-block text-emerald-600 font-semibold text-sm tracking-widest uppercase mb-3">Welcome Back</span>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-2">Resident Portal</h1>
+          {residentInfo && (
+            <p className="text-lg text-slate-500">
+              {residentInfo.buildingName} &mdash; Unit {residentInfo.unitNumber}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Content */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+
+            {/* Notices */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-lg p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
                 </div>
-              ))}
-              {notices.length === 0 && (
-                <p className="text-gray-500 text-center py-8">No notices at this time</p>
-              )}
+                <h3 className="text-xl font-extrabold text-slate-900">Notices</h3>
+              </div>
+              <div className="space-y-3">
+                {notices.map((notice) => (
+                  <div key={notice.id}
+                    className={`p-4 rounded-xl border ${
+                      notice.type === 'urgent'
+                        ? 'bg-red-50 border-red-200'
+                        : notice.type === 'warning'
+                        ? 'bg-amber-50 border-amber-200'
+                        : 'bg-slate-50 border-slate-200'
+                    }`}>
+                    <h4 className="font-bold text-slate-900 text-sm mb-1">{notice.title}</h4>
+                    <p className="text-sm text-slate-600 mb-2">{notice.content}</p>
+                    <p className="text-xs text-slate-400">{new Date(notice.publishedAt).toLocaleDateString()}</p>
+                  </div>
+                ))}
+                {notices.length === 0 && (
+                  <div className="text-center py-10">
+                    <p className="text-slate-400 text-sm">No notices at this time</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Submit Maintenance Ticket */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-lg p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900">Maintenance Request</h3>
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Subject</label>
+                  <input type="text" required value={ticketForm.subject}
+                    onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
+                    className={inputClass} placeholder="Brief description of the issue" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Priority</label>
+                  <select value={ticketForm.priority}
+                    onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
+                    className={inputClass}>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Description</label>
+                  <textarea required rows={3} value={ticketForm.description}
+                    onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
+                    className={inputClass + ' resize-none'} placeholder="Detailed description of the issue" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Your Name</label>
+                    <input type="text" required value={ticketForm.residentName}
+                      onChange={(e) => setTicketForm({ ...ticketForm, residentName: e.target.value })}
+                      className={inputClass} placeholder="Full name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number</label>
+                    <input type="tel" required value={ticketForm.phoneNumber}
+                      onChange={(e) => setTicketForm({ ...ticketForm, phoneNumber: e.target.value })}
+                      className={inputClass} placeholder="+357 99 123456" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Building</label>
+                    <input type="text" required value={ticketForm.buildingName || ''} readOnly
+                      className={inputClass + ' bg-slate-100 cursor-not-allowed'} placeholder="Your building" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Apartment</label>
+                    <input type="text" required value={ticketForm.unitNumber || ''} readOnly
+                      className={inputClass + ' bg-slate-100 cursor-not-allowed'} placeholder="Your apartment" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 py-1">
+                  <input type="checkbox" id="allowEntry" checked={ticketForm.allowEntry}
+                    onChange={(e) => setTicketForm({ ...ticketForm, allowEntry: e.target.checked })}
+                    className="w-4 h-4 text-emerald-500 border-slate-300 rounded focus:ring-emerald-500" />
+                  <label htmlFor="allowEntry" className="text-sm font-medium text-slate-600">
+                    Allow entry if I'm not home
+                  </label>
+                </div>
+                <button type="submit"
+                  className="w-full bg-emerald-500 text-white py-3.5 rounded-xl font-semibold hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-emerald-500/25">
+                  Submit Request
+                </button>
+              </form>
             </div>
           </div>
 
-          {/* Submit Maintenance Ticket */}
-          <div className="bg-white rounded-xl p-6 shadow-lg">
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">🔧 Submit Maintenance Request</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  type="text"
-                  required
-                  value={ticketForm.subject}
-                  onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="Brief description"
-                />
+          {/* Your Tickets */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-lg p-6 md:p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                <select
-                  value={ticketForm.priority}
-                  onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  required
-                  rows={4}
-                  value={ticketForm.description}
-                  onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="Detailed description of the issue"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-                <input
-                  type="text"
-                  required
-                  value={ticketForm.residentName}
-                  onChange={(e) => setTicketForm({ ...ticketForm, residentName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="Full name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
-                <input
-                  type="text"
-                  required
-                  value={ticketForm.buildingName || ''}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  placeholder="Your building"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Apartment Number</label>
-                <input
-                  type="text"
-                  required
-                  value={ticketForm.unitNumber || ''}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  placeholder="Your apartment number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  required
-                  value={ticketForm.phoneNumber}
-                  onChange={(e) => setTicketForm({ ...ticketForm, phoneNumber: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="+357 99 123456"
-                />
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="allowEntry"
-                  checked={ticketForm.allowEntry}
-                  onChange={(e) => setTicketForm({ ...ticketForm, allowEntry: e.target.checked })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <label htmlFor="allowEntry" className="ml-2 text-sm font-medium text-gray-700">
-                  Allow entry if I'm not home
-                </label>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
-              >
-                Submit Request
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Your Tickets */}
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <h3 className="text-2xl font-semibold text-gray-900 mb-6">📋 Your Maintenance Requests</h3>
-          <div className="space-y-4">
-            {tickets.map((ticket) => (
-              <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg shadow flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-gray-900">{ticket.subject}</h4>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        ticket.status === 'resolved'
-                          ? 'bg-green-100 text-green-800'
-                          : ticket.status === 'in-progress'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {ticket.status}
+              <h3 className="text-xl font-extrabold text-slate-900">Your Maintenance Requests</h3>
+            </div>
+            <div className="space-y-3">
+              {tickets.map((ticket) => (
+                <div key={ticket.id} className="bg-slate-50 rounded-xl p-5 border border-slate-100 hover:border-slate-200 transition-all">
+                  <div className="flex justify-between items-start mb-3">
+                    <h4 className="font-bold text-slate-900">{ticket.subject}</h4>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                      <span className={`px-3 py-1 rounded-lg text-xs font-bold ${statusColors[ticket.status || 'open'] || statusColors.open}`}>
+                        {ticket.status}
+                      </span>
+                      <button onClick={async () => {
+                          if (confirm('Are you sure you want to delete this ticket?')) {
+                            try {
+                              await deleteTicket(ticket.id || '');
+                              await onLoadUserData();
+                              alert('Ticket deleted successfully');
+                            } catch (error) {
+                              console.error('Error deleting ticket:', error);
+                              alert('Failed to delete ticket');
+                            }
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        title="Delete ticket">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3">{ticket.description}</p>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className={`px-2.5 py-1 rounded-lg font-semibold ${priorityColors[ticket.priority || 'medium']}`}>
+                      {ticket.priority}
+                    </span>
+                    <span className="text-slate-400">
+                      {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700 mb-2">{ticket.description}</p>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Priority: {ticket.priority}</span>
-                    <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'N/A'}</span>
-                  </div>
                 </div>
-                <button
-                  onClick={async () => {
-                    if (confirm('Are you sure you want to delete this ticket?')) {
-                      try {
-                        await deleteTicket(ticket.id || '');
-                        await onLoadUserData();
-                        alert('Ticket deleted successfully');
-                      } catch (error) {
-                        console.error('Error deleting ticket:', error);
-                        alert('Failed to delete ticket');
-                      }
-                    }
-                  }}
-                  className="ml-4 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition whitespace-nowrap"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
-            {tickets.length === 0 && (
-              <p className="text-gray-500 text-center py-8">No maintenance requests yet</p>
-            )}
+              ))}
+              {tickets.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                  </div>
+                  <p className="text-slate-400 text-sm">No maintenance requests yet</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 
