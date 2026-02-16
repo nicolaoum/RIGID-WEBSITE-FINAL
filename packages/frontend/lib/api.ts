@@ -166,6 +166,16 @@ export const getInquiries = async (): Promise<Inquiry[]> => {
 };
 
 /**
+ * Update inquiry status (staff/admin only)
+ */
+export const updateInquiryStatus = async (id: string, status: string): Promise<{ success: boolean; message: string }> => {
+  return apiRequest(`/inquiries/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+};
+
+/**
  * Submit a maintenance ticket (requires authentication)
  */
 export const submitTicket = async (ticket: Ticket): Promise<{ success: boolean; ticketId: string }> => {

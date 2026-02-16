@@ -812,7 +812,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
             ) : (
               <div className="space-y-4">
                 {inquiries.map((inquiry) => (
-                  <div key={inquiry.id} className={`bg-gray-800 rounded-xl p-6 border ${inquiry.status === 'new' ? 'border-yellow-500/50' : 'border-gray-700'}`}>
+                  <div key={inquiry.id} className={`bg-gray-800 rounded-xl p-6 border ${inquiry.status === 'new' ? 'border-yellow-500/50' : inquiry.status === 'done' ? 'border-green-500/50' : inquiry.status === 'pending' ? 'border-orange-500/50' : 'border-gray-700'}`}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h4 className="font-bold text-lg">{inquiry.subject || 'No Subject'}</h4>
@@ -824,7 +824,8 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                       <div className="flex items-center gap-3">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                           inquiry.status === 'new' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                          inquiry.status === 'replied' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          inquiry.status === 'done' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          inquiry.status === 'pending' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
                           'bg-gray-600/50 text-gray-300 border border-gray-500/30'
                         }`}>
                           {inquiry.status || 'new'}
@@ -840,6 +841,34 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                         className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition font-semibold">
                         ↗ Reply via Email
                       </a>
+                      {inquiry.status !== 'done' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const { updateInquiryStatus } = await import('../lib/api');
+                              await updateInquiryStatus(inquiry.id!, 'done');
+                              loadInquiries();
+                            } catch (e) { console.error(e); }
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500 transition font-semibold"
+                        >
+                          ✓ Done
+                        </button>
+                      )}
+                      {inquiry.status !== 'pending' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const { updateInquiryStatus } = await import('../lib/api');
+                              await updateInquiryStatus(inquiry.id!, 'pending');
+                              loadInquiries();
+                            } catch (e) { console.error(e); }
+                          }}
+                          className="px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-500 transition font-semibold"
+                        >
+                          ⏳ Pending
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

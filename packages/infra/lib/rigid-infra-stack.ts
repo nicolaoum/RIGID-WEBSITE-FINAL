@@ -229,6 +229,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     inquiriesTable.grantReadData(getInquiriesLambda);
 
+    // PUT /inquiries/{id} (staff only - authenticated)
+    const updateInquiryStatusLambda = new lambda.Function(this, 'UpdateInquiryStatusFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'updateInquiryStatus.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inquiriesTable.grantWriteData(updateInquiryStatusLambda);
+
     // GET /tickets (authenticated)
     const getTicketsLambda = new lambda.Function(this, 'GetTicketsFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -545,6 +557,12 @@ export class RigidInfraStack extends cdk.Stack {
     const inquiriesResource = api.root.addResource('inquiries');
     inquiriesResource.addMethod('POST', new apigateway.LambdaIntegration(postInquiryLambda));
     inquiriesResource.addMethod('GET', new apigateway.LambdaIntegration(getInquiriesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const inquiryByIdResource = inquiriesResource.addResource('{id}');
+    inquiryByIdResource.addMethod('PUT', new apigateway.LambdaIntegration(updateInquiryStatusLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
