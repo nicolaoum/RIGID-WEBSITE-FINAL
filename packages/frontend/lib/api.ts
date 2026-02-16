@@ -251,7 +251,7 @@ export const checkResident = async (): Promise<ResidentCheck> => {
 /**
  * Self-register as a resident (requires authentication)
  */
-export const registerResident = async (registration: { email: string; unitNumber: string; buildingId?: string }): Promise<{ success: boolean; message: string }> => {
+export const registerResident = async (registration: { email: string; unitNumber: string; buildingId?: string; phoneNumber?: string }): Promise<{ success: boolean; message: string }> => {
   return apiRequest('/residents/register', {
     method: 'POST',
     body: JSON.stringify(registration),

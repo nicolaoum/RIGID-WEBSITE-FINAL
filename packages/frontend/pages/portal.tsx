@@ -1318,6 +1318,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Phone</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Building</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
@@ -1331,6 +1332,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                       <tr key={resident.id} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 text-sm text-gray-900 font-medium">{resident.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{resident.email}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{resident.phoneNumber || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {buildings.find(b => b.id === resident.buildingId)?.name || 'N/A'}
                         </td>

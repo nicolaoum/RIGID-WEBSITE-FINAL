@@ -30,7 +30,7 @@ export const handler = async (event: any) => {
 
     // Parse request body
     const body = JSON.parse(event.body || '{}');
-    const { email, unitNumber, buildingId } = body;
+    const { email, unitNumber, buildingId, phoneNumber } = body;
 
     // Validate required fields
     if (!email || !unitNumber) {
@@ -71,11 +71,12 @@ export const handler = async (event: any) => {
     }
 
     // Create pending resident record
-    const resident = {
+    const resident: Record<string, any> = {
       id: uuidv4(),
       email: emailLower,
       unitNumber,
       buildingId: buildingId || null,
+      phoneNumber: phoneNumber || null,
       status: 'pending', // Pending until admin approves
       requestedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
