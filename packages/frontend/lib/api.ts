@@ -46,7 +46,7 @@ export interface Inquiry {
   subject?: string;
   unitId?: string;
   message: string;
-  status?: 'new' | 'read' | 'replied';
+  status?: 'new' | 'read' | 'replied' | 'pending' | 'done';
   createdAt?: string;
 }
 
