@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Unit, getUnits, updateUnit, User } from '../lib/api';
 import { generateInviteCode, getInviteCodes, InviteCode } from '../lib/api';
+import { QRCodeSVG } from 'qrcode.react';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 
 export default function UnitsPage() {
@@ -688,10 +689,23 @@ export default function UnitsPage() {
                   </p>
                   <p className="text-sm text-gray-500 mb-6">Valid for 7 days • One-time use</p>
 
-                  <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-6">
+                  <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-4">
                     <p className="text-3xl font-mono font-bold text-gray-900 tracking-wider">
                       {showCodeModal.code}
                     </p>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 inline-block">
+                    <QRCodeSVG
+                      value={`https://rigidrent.com/join?code=${showCodeModal.code}`}
+                      size={180}
+                      level="M"
+                      includeMargin={false}
+                      bgColor="#ffffff"
+                      fgColor="#111827"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">Scan to register</p>
                   </div>
 
                   <div className="flex gap-3 mb-4">
@@ -703,7 +717,7 @@ export default function UnitsPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const text = `Welcome to ${showCodeModal.buildingName}! 🏠\n\nYour invite code: *${showCodeModal.code}*\n\nGo to https://rigidrent.com/join to set up your account.\n\nEnter your invite code, fill in your details, and you're in!`;
+                        const text = `Welcome to ${showCodeModal.buildingName}! 🏠\n\nYour invite code: *${showCodeModal.code}*\n\nGo to https://rigidrent.com/join?code=${showCodeModal.code} to set up your account.\n\nOr scan the QR code to register directly!`;
                         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
                         window.open(whatsappUrl, '_blank');
                       }}
@@ -721,7 +735,7 @@ export default function UnitsPage() {
                   </button>
 
                   <p className="text-xs text-gray-400 mt-4">
-                    Send this code to your new tenant. They'll go to rigidrent.com/join to register.
+                    Send or show this QR code to your new tenant. They can scan it or go to rigidrent.com/join
                   </p>
                 </div>
               </div>

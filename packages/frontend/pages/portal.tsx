@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, getUnits, generateInviteCode, getInviteCodes, User, Ticket, Notice, Resident, Building, Inquiry, Unit, InviteCode } from '../lib/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -730,8 +731,8 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   };
 
   const shareInviteViaWhatsApp = (code: string, unitNumber: string, buildingName: string) => {
-    const joinUrl = `${window.location.origin}/join`;
-    const message = `🏠 You've been invited to join RIGID Residential!\n\n📍 Building: ${buildingName}\n🚪 Unit: ${unitNumber}\n🔑 Invite Code: ${code}\n\n👉 Register here: ${joinUrl}\n\nEnter the invite code to set up your resident account.`;
+    const joinUrl = `${window.location.origin}/join?code=${code}`;
+    const message = `🏠 You've been invited to join RIGID Residential!\n\n📍 Building: ${buildingName}\n🚪 Unit: ${unitNumber}\n🔑 Invite Code: ${code}\n\n👉 Register here: ${joinUrl}\n\nClick the link — your code will be pre-filled!`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -1430,10 +1431,23 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                     Expires: {new Date(generatedCode.expiresAt).toLocaleDateString()}
                   </p>
 
-                  <div className="bg-gray-100 rounded-xl p-4 mb-6">
+                  <div className="bg-gray-100 rounded-xl p-4 mb-4">
                     <p className="text-3xl font-mono font-bold tracking-widest text-gray-900">
                       {generatedCode.code}
                     </p>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 inline-block">
+                    <QRCodeSVG
+                      value={`https://rigidrent.com/join?code=${generatedCode.code}`}
+                      size={180}
+                      level="M"
+                      includeMargin={false}
+                      bgColor="#ffffff"
+                      fgColor="#111827"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">Scan to register</p>
                   </div>
 
                   <div className="flex gap-3 mb-4">
@@ -1456,7 +1470,7 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                   </div>
 
                   <p className="text-xs text-gray-400">
-                    Share this code with the tenant. They can register at <strong>{typeof window !== 'undefined' ? window.location.origin : ''}/join</strong>
+                    Show this QR code to the tenant, or share the code. They can register at <strong>{typeof window !== 'undefined' ? window.location.origin : ''}/join</strong>
                   </p>
 
                   <button

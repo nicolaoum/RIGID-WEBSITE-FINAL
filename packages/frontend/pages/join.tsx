@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { redeemInviteCode } from '../lib/api';
 
 export default function JoinPage() {
   const router = useRouter();
-  const prefillCode = (router.query.code as string) || '';
 
   const [step, setStep] = useState<'code' | 'details' | 'success'>('code');
-  const [code, setCode] = useState(prefillCode);
+  const [code, setCode] = useState('');
+
+  // Pre-fill code from URL query param once router is ready
+  useEffect(() => {
+    if (router.isReady && router.query.code && !code) {
+      setCode(router.query.code as string);
+    }
+  }, [router.isReady, router.query.code]);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
