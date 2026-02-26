@@ -200,22 +200,14 @@ export const handler = async (event: any) => {
 
       console.log(`User ${username} added to resident group in Cognito`);
 
-      // Update user attributes to include name, apartment number, and building ID
-      const userAttributes: any[] = [
-        {
-          Name: 'name',
-          Value: username,
-        },
-        {
-          Name: 'custom:apartmentNumber',
-          Value: unitNumber,
-        },
-      ];
+      // Update standard user attributes (name, phone)
+      // Note: custom:apartmentNumber and custom:buildingId are stored in DynamoDB only
+      const userAttributes: any[] = [];
 
-      if (buildingId) {
+      if (name) {
         userAttributes.push({
-          Name: 'custom:buildingId',
-          Value: buildingId,
+          Name: 'name',
+          Value: name,
         });
       }
 
@@ -232,13 +224,14 @@ export const handler = async (event: any) => {
         });
       }
 
-      await cognitoClient.adminUpdateUserAttributes({
-        UserPoolId: userPoolId,
-        Username: username, // Use actual username, not email
-        UserAttributes: userAttributes,
-      });
-
-      console.log(`User ${username} updated with apartment and building info`);
+      if (userAttributes.length > 0) {
+        await cognitoClient.adminUpdateUserAttributes({
+          UserPoolId: userPoolId,
+          Username: username, // Use actual username, not email
+          UserAttributes: userAttributes,
+        });
+        console.log(`User ${username} updated with attributes`);
+      }
 
       // Update DynamoDB status to 'active'
       await dynamoClient.updateItem({

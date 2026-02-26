@@ -84,24 +84,22 @@ export const handler = async (event: any) => {
             }
           }
 
-          // Update user attributes
-          const userAttributes: any[] = [
-            { Name: 'custom:apartmentNumber', Value: resident.unitNumber },
-          ];
+          // Update user attributes — only standard attributes
+          // custom:apartmentNumber and custom:buildingId are stored in DynamoDB
+          const userAttributes: any[] = [];
 
-          if (resident.buildingId && resident.buildingId !== 'unassigned') {
-            userAttributes.push({
-              Name: 'custom:buildingId',
-              Value: resident.buildingId,
-            });
+          if (resident.name) {
+            userAttributes.push({ Name: 'name', Value: resident.name });
           }
 
           try {
-            await cognitoClient.adminUpdateUserAttributes({
-              UserPoolId: userPoolId,
-              Username: username,
-              UserAttributes: userAttributes,
-            });
+            if (userAttributes.length > 0) {
+              await cognitoClient.adminUpdateUserAttributes({
+                UserPoolId: userPoolId,
+                Username: username,
+                UserAttributes: userAttributes,
+              });
+            }
           } catch (attrError) {
             console.error(`Error updating attributes for ${username}:`, attrError);
           }

@@ -205,23 +205,20 @@ export const handler = async (event: any) => {
 
           const displayName = userDetails.Username || username;
 
+          // Update standard attributes only — custom ones are in DynamoDB
           const userAttributes: any[] = [
             { Name: 'name', Value: displayName },
-            { Name: 'custom:apartmentNumber', Value: residentInfo.unitNumber },
           ];
 
-          if (residentInfo.buildingId && residentInfo.buildingId !== 'unassigned') {
-            userAttributes.push({
-              Name: 'custom:buildingId',
-              Value: residentInfo.buildingId,
+          try {
+            await cognitoClient.adminUpdateUserAttributes({
+              UserPoolId: userPoolId,
+              Username: username,
+              UserAttributes: userAttributes,
             });
+          } catch (attrError: any) {
+            console.error(`Error updating attributes for ${username}:`, attrError);
           }
-
-          await cognitoClient.adminUpdateUserAttributes({
-            UserPoolId: userPoolId,
-            Username: username,
-            UserAttributes: userAttributes,
-          });
 
           // Update DynamoDB status to 'active'
           await docClient.send(

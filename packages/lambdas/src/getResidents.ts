@@ -129,10 +129,11 @@ export const handler = async (event: any) => {
               id: existingResident?.id || attributes.email, // Use DynamoDB ID if available, fallback to email
               cognitoUsername: user.Username, // Store the Cognito username for deletion
               email: attributes.email,
-              name: attributes.name || user.Username,
-              phoneNumber: attributes.phone_number,
-              unitNumber: attributes['custom:apartmentNumber'],
-              buildingId: attributes['custom:buildingId'],
+              name: attributes.name || existingResident?.name || user.Username,
+              phoneNumber: attributes.phone_number || existingResident?.phoneNumber,
+              unitNumber: existingResident?.unitNumber || attributes['custom:apartmentNumber'],
+              buildingId: existingResident?.buildingId || attributes['custom:buildingId'],
+              buildingName: existingResident?.buildingName,
               status: 'active',
               source: 'cognito',
               createdAt: userDetails.UserCreateDate,
