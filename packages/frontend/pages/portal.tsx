@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
-import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, User, Ticket, Notice, Resident, Building, Inquiry } from '../lib/api';
+import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, getUnits, generateInviteCode, getInviteCodes, User, Ticket, Notice, Resident, Building, Inquiry, Unit, InviteCode } from '../lib/api';
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -559,6 +559,16 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
     phoneNumber: '',
   });
 
+  // Invite code state
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [showInviteSection, setShowInviteSection] = useState(false);
+  const [inviteBuildingId, setInviteBuildingId] = useState('');
+  const [inviteUnitId, setInviteUnitId] = useState('');
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<{ code: string; unitNumber: string; buildingName: string; expiresAt: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+
   useEffect(() => {
     setLocalTickets(tickets);
   }, [tickets]);
@@ -589,13 +599,15 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
 
   const loadResidents = async () => {
     try {
-      const [residentsData, buildingsData] = await Promise.all([
+      const [residentsData, buildingsData, unitsData] = await Promise.all([
         getResidents(),
         getBuildings(),
+        getUnits(),
       ]);
       console.log('Loaded residents:', residentsData);
       setResidents(residentsData);
       setBuildings(buildingsData);
+      setUnits(unitsData);
     } catch (error) {
       console.error('Error loading residents:', error);
     }
@@ -680,6 +692,51 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
       alert('Failed to remove resident: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
+
+  const handleGenerateInviteCode = async () => {
+    if (!inviteUnitId) {
+      alert('Please select a unit first');
+      return;
+    }
+    setGeneratingCode(true);
+    try {
+      const result = await generateInviteCode(inviteUnitId);
+      setGeneratedCode(result);
+      setShowCodeModal(true);
+    } catch (error) {
+      console.error('Error generating invite code:', error);
+      alert('Failed to generate invite code: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const copyInviteCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = code;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
+  };
+
+  const shareInviteViaWhatsApp = (code: string, unitNumber: string, buildingName: string) => {
+    const joinUrl = `${window.location.origin}/join`;
+    const message = `🏠 You've been invited to join RIGID Residential!\n\n📍 Building: ${buildingName}\n🚪 Unit: ${unitNumber}\n🔑 Invite Code: ${code}\n\n👉 Register here: ${joinUrl}\n\nEnter the invite code to set up your resident account.`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const filteredUnitsForInvite = units.filter(u => u.buildingId === inviteBuildingId);
 
   const handleStatusChange = async (ticketId: string, newStatus: 'open' | 'in-progress' | 'resolved' | 'closed') => {
     try {
@@ -1212,6 +1269,12 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                 >
                   {showAddForm ? 'Cancel' : '+ Add Resident'}
                 </button>
+                <button
+                  onClick={() => { setShowInviteSection(!showInviteSection); if (showInviteSection) { setInviteBuildingId(''); setInviteUnitId(''); } }}
+                  className="bg-yellow-500 text-gray-900 px-6 py-3 rounded-lg hover:bg-yellow-400 transition font-semibold flex items-center gap-2"
+                >
+                  {showInviteSection ? '✕ Close' : '🔑 Invite Code'}
+                </button>
               </div>
             </div>
 
@@ -1290,6 +1353,119 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                     Add Resident
                   </button>
                 </form>
+              </div>
+            )}
+
+            {/* Generate Invite Code Section */}
+            {showInviteSection && (
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-lg p-6 text-gray-900 border border-yellow-200">
+                <h4 className="text-xl font-bold mb-1 flex items-center gap-2">🔑 Generate Invite Code</h4>
+                <p className="text-gray-500 text-sm mb-4">Select a building and unit, then generate a one-time invite code for a new tenant to self-register.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Building *</label>
+                    <select
+                      value={inviteBuildingId}
+                      onChange={(e) => { setInviteBuildingId(e.target.value); setInviteUnitId(''); }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    >
+                      <option value="">Select Building</option>
+                      {buildings.map((building) => (
+                        <option key={building.id} value={building.id}>
+                          {building.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                    <select
+                      value={inviteUnitId}
+                      onChange={(e) => setInviteUnitId(e.target.value)}
+                      disabled={!inviteBuildingId}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{inviteBuildingId ? 'Select Unit' : 'Select a building first'}</option>
+                      {filteredUnitsForInvite.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber} — {unit.bedrooms}BR / {unit.bathrooms}BA {unit.available ? '(Available)' : '(Occupied)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleGenerateInviteCode}
+                  disabled={!inviteUnitId || generatingCode}
+                  className="w-full bg-yellow-500 text-gray-900 py-3 rounded-lg hover:bg-yellow-400 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {generatingCode ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>🔑 Generate Invite Code</>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Invite Code Modal */}
+            {showCodeModal && generatedCode && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCodeModal(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="text-5xl mb-4">🔑</div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Invite Code Generated!</h3>
+                  <p className="text-gray-500 mb-1">
+                    {generatedCode.buildingName} — Unit {generatedCode.unitNumber}
+                  </p>
+                  <p className="text-gray-400 text-sm mb-6">
+                    Expires: {new Date(generatedCode.expiresAt).toLocaleDateString()}
+                  </p>
+
+                  <div className="bg-gray-100 rounded-xl p-4 mb-6">
+                    <p className="text-3xl font-mono font-bold tracking-widest text-gray-900">
+                      {generatedCode.code}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      onClick={() => copyInviteCode(generatedCode.code)}
+                      className={`flex-1 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 ${
+                        copiedCode
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-900 text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      {copiedCode ? '✅ Copied!' : '📋 Copy Code'}
+                    </button>
+                    <button
+                      onClick={() => shareInviteViaWhatsApp(generatedCode.code, generatedCode.unitNumber, generatedCode.buildingName)}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold flex items-center justify-center gap-2"
+                    >
+                      📱 WhatsApp
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-400">
+                    Share this code with the tenant. They can register at <strong>{typeof window !== 'undefined' ? window.location.origin : ''}/join</strong>
+                  </p>
+
+                  <button
+                    onClick={() => setShowCodeModal(false)}
+                    className="mt-4 w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             )}
 
