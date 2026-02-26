@@ -1,7 +1,7 @@
 import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 const cognitoClient = new CognitoIdentityProvider({});
 const client = new DynamoDBClient({});
@@ -186,7 +186,7 @@ export const handler = async (event: any) => {
       );
     } else {
       // Create new resident record
-      residentId = uuidv4();
+      residentId = randomUUID();
       await docClient.send(
         new PutCommand({
           TableName: process.env.RESIDENTS_TABLE,

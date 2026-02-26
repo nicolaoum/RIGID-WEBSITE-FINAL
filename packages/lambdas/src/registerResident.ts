@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -72,7 +72,7 @@ export const handler = async (event: any) => {
 
     // Create pending resident record
     const resident: Record<string, any> = {
-      id: uuidv4(),
+      id: randomUUID(),
       email: emailLower,
       unitNumber,
       buildingId: buildingId || null,
