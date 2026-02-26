@@ -316,3 +316,13 @@ export const syncPendingResidents = async (): Promise<{ success: boolean; messag
     method: 'POST',
   });
 };
+
+/**
+ * Send announcement email to residents (staff/admin only)
+ */
+export const sendAnnouncementEmail = async (announcement: { title: string; content: string; type: string; buildingId?: string }): Promise<{ message: string; sent: number; failed: number; total: number }> => {
+  return apiRequest('/send-announcement-email', {
+    method: 'POST',
+    body: JSON.stringify(announcement),
+  });
+};

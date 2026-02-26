@@ -4,6 +4,7 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ses from 'aws-cdk-lib/aws-ses';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
@@ -149,6 +150,7 @@ export class RigidInfraStack extends cdk.Stack {
       INQUIRIES_TABLE: inquiriesTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
+      SES_SENDER_EMAIL: process.env.SES_SENDER_EMAIL || 'noreply@rigidresidential.com',
       NODE_ENV: 'production',
     };
 
@@ -501,6 +503,27 @@ export class RigidInfraStack extends cdk.Stack {
     });
     syncPendingRule.addTarget(new targets.LambdaFunction(syncPendingResidentsLambda));
 
+    // POST /send-announcement-email (staff/admin only)
+    const sendAnnouncementEmailLambda = new lambda.Function(this, 'SendAnnouncementEmailFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'sendAnnouncementEmail.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    residentsTable.grantReadData(sendAnnouncementEmailLambda);
+
+    // Grant SES send permissions
+    sendAnnouncementEmailLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'],
+      })
+    );
+
     // ========================================
     // API Gateway
     // ========================================
@@ -656,6 +679,13 @@ export class RigidInfraStack extends cdk.Stack {
 
     const residentResource = residentsResource.addResource('{id}');
     residentResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteResidentLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // POST /send-announcement-email (staff/admin only)
+    const sendAnnouncementEmailResource = api.root.addResource('send-announcement-email');
+    sendAnnouncementEmailResource.addMethod('POST', new apigateway.LambdaIntegration(sendAnnouncementEmailLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
