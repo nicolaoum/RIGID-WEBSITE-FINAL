@@ -107,6 +107,21 @@ export class RigidInfraStack extends cdk.Stack {
       pointInTimeRecovery: true,
     });
 
+    // Invite Codes Table
+    const inviteCodesTable = new dynamodb.Table(this, 'InviteCodesTable', {
+      tableName: 'rigid-invite-codes',
+      partitionKey: { name: 'code', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+    });
+
+    // Add GSI for querying invite codes by unitId
+    inviteCodesTable.addGlobalSecondaryIndex({
+      indexName: 'unitId-index',
+      partitionKey: { name: 'unitId', type: dynamodb.AttributeType.STRING },
+    });
+
     // ========================================
     // S3 Bucket for Images
     // ========================================
@@ -150,6 +165,8 @@ export class RigidInfraStack extends cdk.Stack {
       INQUIRIES_TABLE: inquiriesTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
+      COGNITO_CLIENT_ID: existingUserPoolClientId,
+      INVITE_CODES_TABLE: inviteCodesTable.tableName,
       SES_SENDER_EMAIL: process.env.SES_SENDER_EMAIL || 'noreply@rigidrent.com',
       NODE_ENV: 'production',
     };
@@ -503,6 +520,62 @@ export class RigidInfraStack extends cdk.Stack {
     });
     syncPendingRule.addTarget(new targets.LambdaFunction(syncPendingResidentsLambda));
 
+    // ========================================
+    // Invite Code Lambdas
+    // ========================================
+
+    // POST /invite-codes (generate code - staff/admin only)
+    const generateInviteCodeLambda = new lambda.Function(this, 'GenerateInviteCodeFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'generateInviteCode.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inviteCodesTable.grantReadWriteData(generateInviteCodeLambda);
+    unitsTable.grantReadData(generateInviteCodeLambda);
+
+    // GET /invite-codes (list codes - staff/admin only)
+    const getInviteCodesLambda = new lambda.Function(this, 'GetInviteCodesFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'getInviteCodes.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inviteCodesTable.grantReadData(getInviteCodesLambda);
+
+    // POST /invite-codes/redeem (public - no auth)
+    const redeemInviteCodeLambda = new lambda.Function(this, 'RedeemInviteCodeFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'redeemInviteCode.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inviteCodesTable.grantReadWriteData(redeemInviteCodeLambda);
+    residentsTable.grantReadWriteData(redeemInviteCodeLambda);
+
+    // Grant Cognito permissions to redeem invite code Lambda
+    redeemInviteCodeLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:AdminCreateUser',
+          'cognito-idp:AdminSetUserPassword',
+          'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:ListUsers',
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
     // POST /send-announcement-email (staff/admin only)
     const sendAnnouncementEmailLambda = new lambda.Function(this, 'SendAnnouncementEmailFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -684,6 +757,23 @@ export class RigidInfraStack extends cdk.Stack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
+
+    // ========================================
+    // Invite Code Endpoints
+    // ========================================
+    const inviteCodesResource = api.root.addResource('invite-codes');
+    inviteCodesResource.addMethod('POST', new apigateway.LambdaIntegration(generateInviteCodeLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    inviteCodesResource.addMethod('GET', new apigateway.LambdaIntegration(getInviteCodesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // POST /invite-codes/redeem (PUBLIC - no auth required)
+    const redeemResource = inviteCodesResource.addResource('redeem');
+    redeemResource.addMethod('POST', new apigateway.LambdaIntegration(redeemInviteCodeLambda));
 
     // POST /send-announcement-email (staff/admin only)
     const sendAnnouncementEmailResource = api.root.addResource('send-announcement-email');

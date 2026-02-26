@@ -16,6 +16,7 @@ const ALLOWED_PATHS = [
   'get-upload-url',
   'sync-pending-residents',
   'send-announcement-email',
+  'invite-codes',
 ]
 
 // Allowed HTTP methods

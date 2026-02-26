@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Unit, getUnits, User } from '../lib/api';
+import { generateInviteCode, getInviteCodes, InviteCode } from '../lib/api';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 
 export default function UnitsPage() {
@@ -23,6 +24,12 @@ export default function UnitsPage() {
     videoUrl: '',
   });
 
+  // Invite code state
+  const [inviteCodes, setInviteCodes] = useState<Record<string, InviteCode>>({});
+  const [generatingCode, setGeneratingCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [showCodeModal, setShowCodeModal] = useState<{code: string; unitNumber: string; buildingName: string} | null>(null);
+
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
 
@@ -38,13 +45,67 @@ export default function UnitsPage() {
       ]);
       setUnits(unitsData);
       setUser(userData);
+
+      // Load existing invite codes for staff
+      if (userData && (userData.groups?.includes('staff') || userData.groups?.includes('admin'))) {
+        try {
+          const { codes } = await getInviteCodes();
+          const codeMap: Record<string, InviteCode> = {};
+          for (const c of codes) {
+            // Keep only the latest unused code per unit
+            if (c.status === 'unused' && (!codeMap[c.unitId] || c.createdAt > codeMap[c.unitId].createdAt)) {
+              codeMap[c.unitId] = c;
+            }
+          }
+          setInviteCodes(codeMap);
+        } catch (err) {
+          console.error('Error loading invite codes:', err);
+        }
+      }
     };
     fetchData();
   }, []);
 
+  const handleGenerateCode = async (unitId: string) => {
+    setGeneratingCode(unitId);
+    try {
+      const result = await generateInviteCode(unitId);
+      // Update local state with the new code
+      setInviteCodes(prev => ({
+        ...prev,
+        [unitId]: {
+          code: result.code,
+          unitId,
+          unitNumber: result.unitNumber,
+          buildingName: result.buildingName,
+          status: 'unused' as const,
+          createdBy: user?.email || '',
+          createdAt: new Date().toISOString(),
+          expiresAt: result.expiresAt,
+        },
+      }));
+      setShowCodeModal({
+        code: result.code,
+        unitNumber: result.unitNumber,
+        buildingName: result.buildingName,
+      });
+    } catch (error) {
+      console.error('Failed to generate invite code:', error);
+      alert('Failed to generate invite code');
+    } finally {
+      setGeneratingCode(null);
+    }
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
   const filteredUnits = buildingFilter
-    ? units.filter(u => u.buildingId === buildingFilter && u.available)
-    : units.filter(u => u.available);
+    ? units.filter(u => u.buildingId === buildingFilter && (isStaff || u.available))
+    : units.filter(u => isStaff || u.available);
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,12 +414,22 @@ export default function UnitsPage() {
             {filteredUnits.map((unit) => (
               <div key={unit.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition relative">
                 {isStaff && (
-                  <button
-                    onClick={() => handleDeleteUnit(unit.id)}
-                    className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition font-semibold text-sm z-10"
-                  >
-                    Delete
-                  </button>
+                  <div className="absolute top-4 right-4 z-10 flex gap-2">
+                    <button
+                      onClick={() => handleGenerateCode(unit.id)}
+                      disabled={generatingCode === unit.id}
+                      className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition font-semibold text-sm disabled:opacity-50"
+                      title="Generate invite code for this unit"
+                    >
+                      {generatingCode === unit.id ? '...' : '🔑 Code'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUnit(unit.id)}
+                      className="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition font-semibold text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
                 <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center cursor-pointer" onClick={() => setSelectedUnit(unit)}>
                   {unit.imageUrl ? (
@@ -383,6 +454,19 @@ export default function UnitsPage() {
                     <p className="text-2xl font-bold text-gray-900">€{unit.rent?.toLocaleString()}/mo</p>
                     {unit.availableDate && (
                       <p className="text-sm text-gray-600">Available: {unit.availableDate}</p>
+                    )}
+                    {isStaff && inviteCodes[unit.id] && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono font-semibold">
+                          🔑 {inviteCodes[unit.id].code}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); copyCode(inviteCodes[unit.id].code); }}
+                          className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                        >
+                          {copiedCode === inviteCodes[unit.id].code ? '✓ Copied' : 'Copy'}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -518,6 +602,60 @@ export default function UnitsPage() {
                       Inquire About This Unit
                     </Link>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Invite Code Modal */}
+          {showCodeModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowCodeModal(null)}>
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8" onClick={(e) => e.stopPropagation()}>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">🔑</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Invite Code Generated!</h3>
+                  <p className="text-gray-600 mb-1">
+                    {showCodeModal.buildingName} — Unit {showCodeModal.unitNumber}
+                  </p>
+                  <p className="text-sm text-gray-500 mb-6">Valid for 7 days • One-time use</p>
+
+                  <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-6">
+                    <p className="text-3xl font-mono font-bold text-gray-900 tracking-wider">
+                      {showCodeModal.code}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      onClick={() => copyCode(showCodeModal.code)}
+                      className="flex-1 bg-gray-900 text-white py-3 rounded-xl hover:bg-gray-800 transition font-semibold"
+                    >
+                      {copiedCode === showCodeModal.code ? '✓ Copied!' : '📋 Copy Code'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const text = `Welcome to ${showCodeModal.buildingName}! 🏠\n\nYour invite code: *${showCodeModal.code}*\n\nGo to https://rigidrent.com/join to set up your account.\n\nEnter your invite code, fill in your details, and you're in!`;
+                        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                        window.open(whatsappUrl, '_blank');
+                      }}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 transition font-semibold"
+                    >
+                      📱 WhatsApp
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setShowCodeModal(null)}
+                    className="text-gray-500 hover:text-gray-700 font-medium"
+                  >
+                    Close
+                  </button>
+
+                  <p className="text-xs text-gray-400 mt-4">
+                    Send this code to your new tenant. They'll go to rigidrent.com/join to register.
+                  </p>
                 </div>
               </div>
             </div>

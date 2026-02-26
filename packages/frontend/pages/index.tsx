@@ -431,6 +431,11 @@ function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/join" className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold">
+                  Join With Invite Code
+                </Link>
+              </li>
+              <li>
                 <a href="tel:+35725123456" className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold">
                   Emergency Line
                 </a>

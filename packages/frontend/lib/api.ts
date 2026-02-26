@@ -328,3 +328,50 @@ export const sendAnnouncementEmail = async (announcement: { title: string; conte
     body: JSON.stringify(announcement),
   });
 };
+
+// ========================================
+// Invite Code Functions
+// ========================================
+
+export interface InviteCode {
+  code: string;
+  unitId: string;
+  unitNumber: string;
+  buildingId?: string;
+  buildingName?: string;
+  status: 'unused' | 'used' | 'expired';
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  usedBy?: string;
+  usedAt?: string;
+}
+
+/**
+ * Generate an invite code for a unit (staff/admin only)
+ */
+export const generateInviteCode = async (unitId: string): Promise<{ code: string; unitNumber: string; buildingName: string; expiresAt: string }> => {
+  return apiRequest('/invite-codes', {
+    method: 'POST',
+    body: JSON.stringify({ unitId }),
+  });
+};
+
+/**
+ * Get invite codes for a unit or all codes (staff/admin only)
+ */
+export const getInviteCodes = async (unitId?: string): Promise<{ codes: InviteCode[] }> => {
+  const query = unitId ? `?unitId=${encodeURIComponent(unitId)}` : '';
+  return apiRequest(`/invite-codes${query}`);
+};
+
+/**
+ * Redeem an invite code (public — no auth required)
+ */
+export const redeemInviteCode = async (data: { code: string; email: string; name: string; phoneNumber?: string; password: string }): Promise<{ message: string; email: string; unitNumber: string; buildingName: string }> => {
+  // This goes through the proxy but doesn't need auth — the proxy will forward without token
+  return apiRequest('/invite-codes/redeem', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
