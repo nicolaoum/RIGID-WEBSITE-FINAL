@@ -7,7 +7,7 @@ const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const sesClient = new SESClient({});
 
-const SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'noreply@rigidresidential.com';
+const SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'noreply@rigidrent.com';
 
 interface Resident {
   id: string;

@@ -150,7 +150,7 @@ export class RigidInfraStack extends cdk.Stack {
       INQUIRIES_TABLE: inquiriesTable.tableName,
       IMAGES_BUCKET: imagesBucket.bucketName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
-      SES_SENDER_EMAIL: process.env.SES_SENDER_EMAIL || 'noreply@rigidresidential.com',
+      SES_SENDER_EMAIL: process.env.SES_SENDER_EMAIL || 'noreply@rigidrent.com',
       NODE_ENV: 'production',
     };
 
