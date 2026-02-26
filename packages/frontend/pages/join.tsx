@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { redeemInviteCode } from '../lib/api';
+import { redeemInviteCode, verifyEmail } from '../lib/api';
 
 export default function JoinPage() {
   const router = useRouter();
 
-  const [step, setStep] = useState<'code' | 'details' | 'success'>('code');
+  const [step, setStep] = useState<'code' | 'details' | 'verify' | 'success'>('code');
   const [code, setCode] = useState('');
 
   // Pre-fill code from URL query param once router is ready
@@ -22,9 +22,11 @@ export default function JoinPage() {
     password: '',
     confirmPassword: '',
   });
+  const [verificationCode, setVerificationCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successData, setSuccessData] = useState<any>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const handleCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +69,43 @@ export default function JoinPage() {
         password: formData.password,
       });
       setSuccessData(result);
-      setStep('success');
+      if (result.requiresVerification) {
+        setStep('verify');
+      } else {
+        setStep('success');
+      }
     } catch (err: any) {
       const msg = err.message || 'Registration failed. Please try again.';
       // Extract the actual error message from the API response
+      try {
+        const parsed = JSON.parse(msg.replace('API Error: ', '').replace(/^\d+ - /, ''));
+        setError(parsed.message || msg);
+      } catch {
+        setError(msg);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!verificationCode.trim() || verificationCode.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await verifyEmail({
+        email: formData.email.toLowerCase().trim(),
+        verificationCode: verificationCode.trim(),
+      });
+      setStep('success');
+    } catch (err: any) {
+      const msg = err.message || 'Verification failed. Please try again.';
       try {
         const parsed = JSON.parse(msg.replace('API Error: ', '').replace(/^\d+ - /, ''));
         setError(parsed.message || msg);
@@ -106,31 +141,44 @@ export default function JoinPage() {
       <div className="max-w-lg mx-auto px-4 py-12">
         {/* Progress Steps */}
         <div className="flex items-center justify-center mb-10">
+          {/* Step 1: Code */}
           <div className={`flex items-center ${step === 'code' ? 'text-gray-900' : 'text-green-600'}`}>
             <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               step === 'code' ? 'bg-gray-900 text-white' : 'bg-green-600 text-white'
             }`}>
               {step !== 'code' ? '✓' : '1'}
             </span>
-            <span className="ml-2 font-medium text-sm">Invite Code</span>
+            <span className="ml-1 font-medium text-xs sm:text-sm">Code</span>
           </div>
-          <div className={`w-12 h-0.5 mx-3 ${step !== 'code' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-          <div className={`flex items-center ${step === 'details' ? 'text-gray-900' : step === 'success' ? 'text-green-600' : 'text-gray-400'}`}>
+          <div className={`w-6 sm:w-10 h-0.5 mx-1 sm:mx-2 ${step !== 'code' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          {/* Step 2: Details */}
+          <div className={`flex items-center ${step === 'details' ? 'text-gray-900' : (step === 'verify' || step === 'success') ? 'text-green-600' : 'text-gray-400'}`}>
             <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step === 'details' ? 'bg-gray-900 text-white' : step === 'success' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
+              step === 'details' ? 'bg-gray-900 text-white' : (step === 'verify' || step === 'success') ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
             }`}>
-              {step === 'success' ? '✓' : '2'}
+              {(step === 'verify' || step === 'success') ? '✓' : '2'}
             </span>
-            <span className="ml-2 font-medium text-sm">Your Details</span>
+            <span className="ml-1 font-medium text-xs sm:text-sm">Details</span>
           </div>
-          <div className={`w-12 h-0.5 mx-3 ${step === 'success' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          <div className={`w-6 sm:w-10 h-0.5 mx-1 sm:mx-2 ${(step === 'verify' || step === 'success') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          {/* Step 3: Verify */}
+          <div className={`flex items-center ${step === 'verify' ? 'text-gray-900' : step === 'success' ? 'text-green-600' : 'text-gray-400'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+              step === 'verify' ? 'bg-gray-900 text-white' : step === 'success' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
+            }`}>
+              {step === 'success' ? '✓' : '3'}
+            </span>
+            <span className="ml-1 font-medium text-xs sm:text-sm">Verify</span>
+          </div>
+          <div className={`w-6 sm:w-10 h-0.5 mx-1 sm:mx-2 ${step === 'success' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          {/* Step 4: Done */}
           <div className={`flex items-center ${step === 'success' ? 'text-green-600' : 'text-gray-400'}`}>
             <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               step === 'success' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
             }`}>
-              {step === 'success' ? '✓' : '3'}
+              {step === 'success' ? '✓' : '4'}
             </span>
-            <span className="ml-2 font-medium text-sm">Done</span>
+            <span className="ml-1 font-medium text-xs sm:text-sm">Done</span>
           </div>
         </div>
 
@@ -302,7 +350,73 @@ export default function JoinPage() {
           </div>
         )}
 
-        {/* Step 3: Success */}
+        {/* Step 3: Verify Email */}
+        {step === 'verify' && (
+          <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-10 border border-gray-100">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Email</h2>
+              <p className="text-gray-600">
+                We sent a 6-digit code to <strong className="text-gray-900">{formData.email}</strong>
+              </p>
+              <p className="text-gray-500 text-sm mt-1">Check your inbox (and spam folder)</p>
+            </div>
+
+            <form onSubmit={handleVerify} className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Verification Code</label>
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setVerificationCode(val);
+                    setError('');
+                  }}
+                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl text-center text-3xl font-mono tracking-[0.5em] text-gray-900 placeholder-gray-300 focus:border-blue-500 focus:ring-0 transition-colors"
+                  placeholder="000000"
+                  maxLength={6}
+                  autoFocus
+                  disabled={submitting}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 rounded-xl p-4">
+                  <p className="text-red-700 font-medium">{error}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting || verificationCode.length !== 6}
+                className="w-full bg-gray-900 text-white py-4 rounded-xl hover:bg-gray-800 transition font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Verifying...
+                  </span>
+                ) : (
+                  'Verify Email ✓'
+                )}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-gray-500 mt-6">
+              Didn't receive the code? Check your spam folder or contact your property manager.
+            </p>
+          </div>
+        )}
+
+        {/* Step 4: Success */}
         {step === 'success' && (
           <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-10 border border-gray-100 text-center">
             <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">

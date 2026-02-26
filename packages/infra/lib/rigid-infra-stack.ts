@@ -582,8 +582,39 @@ export class RigidInfraStack extends cdk.Stack {
           'cognito-idp:AdminCreateUser',
           'cognito-idp:AdminSetUserPassword',
           'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:AdminUpdateUserAttributes',
           'cognito-idp:ListUsers',
         ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Grant SES permissions to redeem invite code Lambda (for verification emails)
+    redeemInviteCodeLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'],
+      })
+    );
+
+    // POST /invite-codes/verify-email (public - no auth)
+    const verifyEmailLambda = new lambda.Function(this, 'VerifyEmailFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'verifyEmail.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    inviteCodesTable.grantReadWriteData(verifyEmailLambda);
+
+    // Grant Cognito permissions to verify email Lambda
+    verifyEmailLambda.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ['cognito-idp:AdminUpdateUserAttributes'],
         resources: [userPool.userPoolArn],
       })
     );
@@ -790,6 +821,10 @@ export class RigidInfraStack extends cdk.Stack {
     // POST /invite-codes/redeem (PUBLIC - no auth required)
     const redeemResource = inviteCodesResource.addResource('redeem');
     redeemResource.addMethod('POST', new apigateway.LambdaIntegration(redeemInviteCodeLambda));
+
+    // POST /invite-codes/verify-email (PUBLIC - no auth required)
+    const verifyEmailResource = inviteCodesResource.addResource('verify-email');
+    verifyEmailResource.addMethod('POST', new apigateway.LambdaIntegration(verifyEmailLambda));
 
     // POST /send-announcement-email (staff/admin only)
     const sendAnnouncementEmailResource = api.root.addResource('send-announcement-email');

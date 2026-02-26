@@ -378,9 +378,19 @@ export const getInviteCodes = async (unitId?: string): Promise<{ codes: InviteCo
 /**
  * Redeem an invite code (public — no auth required)
  */
-export const redeemInviteCode = async (data: { code: string; email: string; name: string; phoneNumber?: string; password: string }): Promise<{ message: string; email: string; unitNumber: string; buildingName: string }> => {
+export const redeemInviteCode = async (data: { code: string; email: string; name: string; phoneNumber?: string; password: string }): Promise<{ message: string; email: string; unitNumber: string; buildingName: string; requiresVerification: boolean }> => {
   // This goes through the proxy but doesn't need auth — the proxy will forward without token
   return apiRequest('/invite-codes/redeem', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+/**
+ * Verify email with 6-digit code (public — no auth required)
+ */
+export const verifyEmail = async (data: { email: string; verificationCode: string }): Promise<{ message: string; verified: boolean; email: string }> => {
+  return apiRequest('/invite-codes/verify-email', {
     method: 'POST',
     body: JSON.stringify(data),
   });
