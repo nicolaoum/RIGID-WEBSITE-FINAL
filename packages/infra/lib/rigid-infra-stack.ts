@@ -538,6 +538,8 @@ export class RigidInfraStack extends cdk.Stack {
           'http://localhost:3000',
           'https://rigidresidential.com',
           'https://www.rigidresidential.com',
+          'https://rigidrent.com',
+          'https://www.rigidrent.com',
         ],
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: [
