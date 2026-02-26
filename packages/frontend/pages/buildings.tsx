@@ -12,6 +12,7 @@ import stadiouImg from '../public/stadiou-building.jpg';
 const LOCAL_BUILDING_IMAGES: Record<string, { src: string }> = {
   'pierias': pieriasImg,
   'stadiou': stadiouImg,
+  'ektoros': pieriasImg,
 };
 
 function getBuildingImage(building: Building): string | undefined {
