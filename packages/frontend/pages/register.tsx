@@ -1,6 +1,6 @@
  import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchCurrentUser, isAuthenticated } from '../lib/auth';
+import { getCurrentUser } from '../lib/auth';
 import { registerResident, getBuildings, Building } from '../lib/api';
 
 export default function Register() {
@@ -17,20 +17,18 @@ export default function Register() {
   });
 
   useEffect(() => {
-    const init = async () => {
-      const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
 
-      // Pre-fill email if user is logged in
-      if (currentUser?.email) {
-        setFormData(prev => ({ ...prev, email: currentUser.email }));
-      }
+    // Pre-fill email if user is logged in
+    if (currentUser?.email) {
+      setFormData(prev => ({ ...prev, email: currentUser.email }));
+    }
 
-      // Auto-populate apartment number from user profile
-      if (currentUser?.['custom:apartmentNumber']) {
-        setFormData(prev => ({ ...prev, unitNumber: currentUser['custom:apartmentNumber'] || '' }));
-      }
-    };
+    // Auto-populate apartment number from user profile
+    if (currentUser?.['custom:apartmentNumber']) {
+      setFormData(prev => ({ ...prev, unitNumber: currentUser['custom:apartmentNumber'] || '' }));
+    }
 
     const loadBuildings = async () => {
       try {
@@ -43,7 +41,6 @@ export default function Register() {
       }
     };
 
-    init();
     loadBuildings();
   }, []);
 
@@ -271,15 +268,15 @@ function Navigation() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const init = async () => {
-      const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
-    };
-    init();
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
   }, []);
 
   const handleLogout = () => {
-    // Server-side /api/logout clears HttpOnly cookies and redirects to Cognito
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
     window.location.href = '/api/logout';
   };
 

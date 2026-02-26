@@ -1,7 +1,6 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -11,12 +10,12 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Updates the status of a ticket (staff/admin only)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('PUT /tickets/{ticketId}/status request:', JSON.stringify(event, null, 2));
 
   try {
     // Extract user from Cognito authorizer context
     const claims = event.requestContext.authorizer?.claims;
+    console.log('All claims:', JSON.stringify(claims, null, 2));
     
     // Cognito sends groups as a comma-separated string
     let groups: string[] = [];
@@ -33,12 +32,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
     
+    console.log('Parsed groups array:', groups);
     const isStaff = groups.some(g => g === 'staff' || g === 'admin');
+    console.log('Is staff/admin:', isStaff);
 
     if (!isStaff) {
+      console.log('Access denied - not staff/admin');
       return {
         statusCode: 403,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
         body: JSON.stringify({
           success: false,
           message: 'Only staff and admin can update ticket status',
@@ -47,11 +53,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const ticketId = event.pathParameters?.ticketId;
+    console.log('Ticket ID:', ticketId);
     
     if (!ticketId) {
+      console.log('Missing ticket ID');
       return {
         statusCode: 400,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
         body: JSON.stringify({
           success: false,
           message: 'Missing ticket ID',
@@ -61,13 +73,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     
     const body = JSON.parse(event.body || '{}');
     const { status } = body;
+    console.log('New status:', status);
 
     // Validate status
     const validStatuses = ['open', 'in-progress', 'resolved', 'closed'];
     if (!validStatuses.includes(status)) {
       return {
         statusCode: 400,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
         body: JSON.stringify({
           success: false,
           message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
@@ -90,7 +107,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!queryResult.Items || queryResult.Items.length === 0) {
       return {
         statusCode: 404,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
         body: JSON.stringify({
           success: false,
           message: 'Ticket not found',
@@ -125,7 +146,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify({
         success: true,
         message: 'Ticket status updated successfully',
@@ -140,7 +165,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify({
         success: false,
         message: 'Failed to update ticket status',

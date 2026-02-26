@@ -1,7 +1,6 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -11,10 +10,10 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Returns ALL tickets across all users (staff/admin only)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('GET /tickets/all request:', JSON.stringify(event, null, 2));
 
   try {
+    // Verify user is staff or admin - handle comma-separated string from Cognito
     const groupsClaim = event.requestContext.authorizer?.claims['cognito:groups'];
     let groups: string[] = [];
     
@@ -31,11 +30,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!isStaff) {
       return {
         statusCode: 403,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
         body: JSON.stringify({ error: 'Forbidden - Staff access required' }),
       };
     }
 
+    // Scan all tickets (for staff portal)
     const result = await docClient.send(
       new ScanCommand({
         TableName: process.env.TICKETS_TABLE,
@@ -44,14 +48,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify(result.Items || []),
     };
   } catch (error) {
     console.error('Error fetching all tickets:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify([]),
     };
   }

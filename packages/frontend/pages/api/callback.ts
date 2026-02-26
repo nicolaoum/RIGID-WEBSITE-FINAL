@@ -1,19 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 /**
  * OAuth callback handler for Cognito
- * Exchanges authorization code for tokens and stores them ONLY in HttpOnly Secure cookies.
- * NEVER exposes tokens in URLs, localStorage, or client-side JavaScript.
+ * Exchanges authorization code for tokens and redirects with tokens as URL params
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Only allow GET requests (OAuth redirect)
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   const { code, error } = req.query;
+
+  console.log('Callback received:', { code: code ? 'present' : 'missing', error });
 
   if (error) {
     console.error('Authentication error:', error);
@@ -26,10 +20,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Exchange code for tokens server-side
+    // Exchange code for tokens
     const tokenUrl = process.env.NEXT_PUBLIC_COGNITO_TOKEN_URL!;
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID!;
     const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI!;
+
+    console.log('Exchanging code for tokens with redirect_uri:', redirectUri);
 
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -53,28 +49,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const tokens = await response.json();
-    const maxAge = tokens.expires_in || 3600;
 
-    // Store tokens ONLY in HttpOnly, Secure, SameSite=Strict cookies
-    // These cookies are NEVER accessible to client-side JavaScript (XSS-proof)
-    const securePart = isProduction ? ' Secure;' : '';
-    const sameSite = isProduction ? 'Strict' : 'Lax';
+    // Set tokens as HTTP-only cookies (no Secure flag for localhost)
+    const maxAge = tokens.expires_in || 3600; // Default to 1 hour
+    
+    res.setHeader('Set-Cookie', [
+      `rigid_access_token=${tokens.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
+      `rigid_id_token=${tokens.id_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
+      tokens.refresh_token ? `rigid_refresh_token=${tokens.refresh_token}; Path=/; Max-Age=${maxAge * 24}; HttpOnly; SameSite=Lax` : '',
+    ].filter(Boolean));
 
-    const cookies = [
-      `rigid_access_token=${tokens.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly;${securePart} SameSite=${sameSite}`,
-      `rigid_id_token=${tokens.id_token}; Path=/; Max-Age=${maxAge}; HttpOnly;${securePart} SameSite=${sameSite}`,
-      tokens.refresh_token
-        ? `rigid_refresh_token=${tokens.refresh_token}; Path=/; Max-Age=${maxAge * 24}; HttpOnly;${securePart} SameSite=${sameSite}`
-        : '',
-      // Set a non-sensitive flag cookie so the client knows the user is logged in
-      // This contains NO token data — just a boolean signal
-      `rigid_logged_in=true; Path=/; Max-Age=${maxAge};${securePart} SameSite=${sameSite}`,
-    ].filter(Boolean);
+    // Also redirect with tokens in URL for client-side localStorage
+    const redirectParams = new URLSearchParams({
+      access_token: tokens.access_token,
+      id_token: tokens.id_token,
+      refresh_token: tokens.refresh_token || '',
+      expires_in: tokens.expires_in.toString(),
+    });
 
-    res.setHeader('Set-Cookie', cookies);
-
-    // Redirect to home with NO tokens in URL — clean redirect only
-    res.redirect('/?login=success');
+    res.redirect(`/?${redirectParams.toString()}`);
   } catch (err) {
     console.error('Token exchange error:', err);
     res.redirect('/?error=token_exchange_failed');

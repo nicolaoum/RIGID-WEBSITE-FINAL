@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { fetchCurrentUser, isAuthenticated } from '@/lib/auth';
-import { submitInquiry } from '@/lib/api';
+import { getCurrentUser } from '@/lib/auth';
 
 export default function Contact() {
   const [user, setUser] = useState<any>(null);
@@ -18,18 +17,18 @@ export default function Contact() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
-    };
-    init();
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleLogout = () => {
-    // Server-side /api/logout clears HttpOnly cookies and redirects to Cognito
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
     window.location.href = '/api/logout';
   };
 
@@ -37,10 +36,15 @@ export default function Contact() {
     e.preventDefault();
     setSending(true);
     try {
-      // Use secure api.ts helper — routes through proxy, no direct API Gateway call
-      await submitInquiry(formData);
-      setSubmitted(true);
-      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (response.ok) {
+        setSubmitted(true);
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      }
     } catch (error) {
       console.error('Failed to submit inquiry:', error);
       alert('Failed to send message. Please try again.');

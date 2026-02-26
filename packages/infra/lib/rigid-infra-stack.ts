@@ -15,17 +15,10 @@ export class RigidInfraStack extends cdk.Stack {
     super(scope, id, props);
 
     // ========================================
-    // Configuration — read from environment (never hardcode secrets)
+    // Configuration - Update these values!
     // ========================================
-    const existingUserPoolId = process.env.COGNITO_USER_POOL_ID;
-    const existingUserPoolClientId = process.env.COGNITO_CLIENT_ID;
-
-    if (!existingUserPoolId) {
-      throw new Error('COGNITO_USER_POOL_ID environment variable is required');
-    }
-    if (!existingUserPoolClientId) {
-      throw new Error('COGNITO_CLIENT_ID environment variable is required');
-    }
+    const existingUserPoolId = process.env.COGNITO_USER_POOL_ID || 'eu-central-1_bLlAnT4dg';
+    const existingUserPoolClientId = process.env.COGNITO_CLIENT_ID || '304ra92g7gp9loo2f29pr15aq5';
 
     // Import existing Cognito User Pool
     const userPool = cognito.UserPool.fromUserPoolId(
@@ -118,21 +111,17 @@ export class RigidInfraStack extends cdk.Stack {
     // ========================================
     const imagesBucket = new s3.Bucket(this, 'ImagesBucket', {
       bucketName: `rigid-images-${this.account}-${this.region}`,
-      // SECURITY: Block all public access — serve images via CloudFront or signed URLs
-      publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      // Enforce encryption at rest
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      // Enforce TLS for data in transit
-      enforceSSL: true,
+      publicReadAccess: true,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        blockPublicPolicy: false,
+        ignorePublicAcls: false,
+        restrictPublicBuckets: false,
+      }),
       cors: [
         {
           allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
-          allowedOrigins: [
-            'http://localhost:3000',
-            'https://rigidresidential.com',
-            'https://www.rigidresidential.com',
-          ],
+          allowedOrigins: ['*'],
           allowedHeaders: ['*'],
           exposedHeaders: ['ETag'],
           maxAge: 3000,
@@ -623,11 +612,8 @@ export class RigidInfraStack extends cdk.Stack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
-    // POST /notices (staff/admin only - Cognito authorizer required)
-    noticesResource.addMethod('POST', new apigateway.LambdaIntegration(postNoticeLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-    });
+    // POST /notices - no authorizer for now (Lambda will handle validation)
+    noticesResource.addMethod('POST', new apigateway.LambdaIntegration(postNoticeLambda));
 
     // DELETE /notices/{noticeId} (staff/admin only)
     const noticeIdResource = noticesResource.addResource('{noticeId}');

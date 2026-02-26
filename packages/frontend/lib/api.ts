@@ -1,11 +1,9 @@
 /**
  * API client for communicating with AWS API Gateway
- * 
- * SECURITY: Authentication is handled via HttpOnly cookies.
- * The Next.js proxy (/api/proxy) reads the token from the cookie
- * and injects the Authorization header server-side.
- * No tokens are ever exposed to client-side JavaScript.
+ * Handles authentication headers and request/response formatting
  */
+
+import { getAccessToken } from './auth';
 
 // Route all API calls through the local Next.js proxy to avoid browser CORS issues.
 const API_URL = '/api/proxy';
@@ -106,25 +104,26 @@ export interface ResidentCheck {
 }
 
 /**
- * Generic API request wrapper.
- * Authentication is handled automatically by the proxy reading HttpOnly cookies.
- * No Authorization header is sent from the browser.
+ * Generic API request wrapper
  */
 const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
+  const token = getAccessToken();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  // NOTE: No Authorization header! The proxy reads the HttpOnly cookie server-side.
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'same-origin', // Ensure cookies are sent to our proxy
   });
 
   if (!response.ok) {
@@ -140,35 +139,6 @@ const apiRequest = async <T>(
  */
 export const getUnits = async (): Promise<Unit[]> => {
   return apiRequest<Unit[]>('/units');
-};
-
-/**
- * Add a new unit (staff/admin only)
- */
-export const postUnit = async (unit: Partial<Unit>): Promise<Unit> => {
-  return apiRequest('/units', {
-    method: 'POST',
-    body: JSON.stringify(unit),
-  });
-};
-
-/**
- * Delete a unit (staff/admin only)
- */
-export const deleteUnit = async (unitId: string): Promise<{ success: boolean }> => {
-  return apiRequest(`/units/${unitId}`, {
-    method: 'DELETE',
-  });
-};
-
-/**
- * Get a presigned upload URL for S3 image uploads (staff/admin only)
- */
-export const getUploadUrl = async (fileName: string, contentType: string): Promise<{ uploadUrl: string; fileUrl: string }> => {
-  return apiRequest('/upload-url', {
-    method: 'POST',
-    body: JSON.stringify({ fileName, contentType }),
-  });
 };
 
 /**
@@ -263,15 +233,6 @@ export const postNotice = async (notice: { title: string; content: string; type:
   return apiRequest('/notices', {
     method: 'POST',
     body: JSON.stringify(notice),
-  });
-};
-
-/**
- * Delete a notice (staff/admin only)
- */
-export const deleteNotice = async (noticeId: string): Promise<{ success: boolean }> => {
-  return apiRequest(`/notices/${noticeId}`, {
-    method: 'DELETE',
   });
 };
 

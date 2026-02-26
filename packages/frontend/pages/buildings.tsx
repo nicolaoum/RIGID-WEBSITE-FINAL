@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { Building, getBuildings } from '../lib/api';
-import { fetchCurrentUser, isAuthenticated } from '../lib/auth';
+import { getCurrentUser } from '../lib/auth';
 
 // Static image imports — bundled by Next.js into /_next/static/
 import pieriasImg from '../public/pierias-building.jpg';
@@ -31,10 +31,10 @@ export default function BuildingsPage() {
     const fetchData = async () => {
       const data = await getBuildings();
       setBuildings(data);
-      const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
     };
     fetchData();
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
 
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
@@ -42,7 +42,10 @@ export default function BuildingsPage() {
   }, []);
 
   const handleLogout = () => {
-    // Server-side /api/logout clears HttpOnly cookies and redirects to Cognito
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
     window.location.href = '/api/logout';
   };
 

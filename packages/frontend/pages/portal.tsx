@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchCurrentUser, isAuthenticated } from '../lib/auth';
+import { getCurrentUser } from '../lib/auth';
 import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, User, Ticket, Notice, Resident, Building, Inquiry } from '../lib/api';
 
 export default function Portal() {
@@ -14,12 +14,16 @@ export default function Portal() {
   const [residentInfo, setResidentInfo] = useState<Resident | null>(null);
 
   useEffect(() => {
-    loadUserData();
+    // Small delay to ensure localStorage is ready
+    const timer = setTimeout(() => {
+      loadUserData();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadUserData = async () => {
     try {
-      const currentUser = await fetchCurrentUser();
+      const currentUser = getCurrentUser();
       console.log('Current user:', currentUser);
       
       setUser(currentUser);
@@ -214,18 +218,18 @@ function Navigation() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
-    };
-    init();
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleLogout = () => {
-    // Server-side /api/logout clears HttpOnly cookies and redirects to Cognito
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
     window.location.href = '/api/logout';
   };
 

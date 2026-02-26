@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Unit, getUnits, postUnit, deleteUnit, getUploadUrl, User } from '../lib/api';
-import { fetchCurrentUser, isAuthenticated } from '../lib/auth';
+import { Unit, getUnits, User } from '../lib/api';
+import { getCurrentUser } from '../lib/auth';
 
 export default function UnitsPage() {
   const router = useRouter();
@@ -27,7 +27,10 @@ export default function UnitsPage() {
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
 
   const handleLogout = () => {
-    // Server-side /api/logout clears HttpOnly cookies and redirects to Cognito
+    localStorage.removeItem('rigid_id_token');
+    localStorage.removeItem('rigid_access_token');
+    localStorage.removeItem('rigid_refresh_token');
+    localStorage.removeItem('rigid_user');
     window.location.href = '/api/logout';
   };
 
@@ -35,7 +38,7 @@ export default function UnitsPage() {
     const fetchData = async () => {
       const [unitsData, userData] = await Promise.all([
         getUnits(),
-        fetchCurrentUser(),
+        getCurrentUser(),
       ]);
       setUnits(unitsData);
       setUser(userData);
@@ -50,14 +53,33 @@ export default function UnitsPage() {
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('rigid_id_token');
+      
       const imageUrls: string[] = [];
       console.log('Uploading', imageFiles.length, 'images...');
       
       for (const file of imageFiles) {
         console.log('Processing file:', file.name, file.type);
         
-        // Use secure api.ts helper — proxy handles auth via HttpOnly cookie
-        const { uploadUrl, fileUrl } = await getUploadUrl(file.name, file.type);
+        const urlResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-url`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+          }),
+        });
+        
+        if (!urlResponse.ok) {
+          const error = await urlResponse.text();
+          console.error('Failed to get upload URL:', error);
+          throw new Error('Failed to get upload URL');
+        }
+        
+        const { uploadUrl, fileUrl } = await urlResponse.json();
         console.log('Got presigned URL, uploading to S3...');
         
         const uploadResponse = await fetch(uploadUrl, {
@@ -75,33 +97,44 @@ export default function UnitsPage() {
         imageUrls.push(fileUrl);
       }
 
-      console.log('All images uploaded. Creating unit...');
-
-      // Use secure api.ts helper — proxy handles auth via HttpOnly cookie
-      await postUnit({
+      console.log('All images uploaded. Creating unit with data:', {
         ...newUnit,
-        available: true,
-        imageUrl: imageUrls[0] || undefined,
-        images: imageUrls,
-        videoUrl: newUnit.videoUrl || undefined,
+        imageUrls,
       });
 
-      setShowAddForm(false);
-      setNewUnit({
-        buildingId: '',
-        buildingName: '',
-        unitNumber: '',
-        bedrooms: 2,
-        bathrooms: 1,
-        sqft: 900,
-        price: 1000,
-        availableDate: '',
-        videoUrl: '',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...newUnit,
+          available: true,
+          imageUrl: imageUrls[0] || null,
+          images: imageUrls,
+          videoUrl: newUnit.videoUrl || null,
+        }),
       });
-      setImageFiles([]);
-      const updatedUnits = await getUnits();
-      setUnits(updatedUnits);
-      alert('Unit added successfully!');
+
+      if (response.ok) {
+        setShowAddForm(false);
+        setNewUnit({
+          buildingId: '',
+          buildingName: '',
+          unitNumber: '',
+          bedrooms: 2,
+          bathrooms: 1,
+          sqft: 900,
+          price: 1000,
+          availableDate: '',
+          videoUrl: '',
+        });
+        setImageFiles([]);
+        const updatedUnits = await getUnits();
+        setUnits(updatedUnits);
+        alert('Unit added successfully!');
+      }
     } catch (error) {
       console.error('Failed to add unit:', error);
       alert('Failed to add unit');
@@ -112,11 +145,19 @@ export default function UnitsPage() {
     if (!confirm('Are you sure you want to delete this unit?')) return;
 
     try {
-      // Use secure api.ts helper — proxy handles auth via HttpOnly cookie
-      await deleteUnit(unitId);
-      const updatedUnits = await getUnits();
-      setUnits(updatedUnits);
-      alert('Unit deleted successfully!');
+      const token = localStorage.getItem('rigid_id_token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${unitId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const updatedUnits = await getUnits();
+        setUnits(updatedUnits);
+        alert('Unit deleted successfully!');
+      }
     } catch (error) {
       console.error('Failed to delete unit:', error);
       alert('Failed to delete unit');

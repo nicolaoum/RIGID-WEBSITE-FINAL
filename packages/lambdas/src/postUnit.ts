@@ -2,7 +2,6 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
-import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -12,8 +11,7 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Creates a new unit (staff/admin only)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('POST /units request:', event);
 
   try {
     const body = JSON.parse(event.body || '{}');
@@ -34,14 +32,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 201,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify(unit),
     };
   } catch (error) {
     console.error('Error creating unit:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify({ error: 'Failed to create unit' }),
     };
   }

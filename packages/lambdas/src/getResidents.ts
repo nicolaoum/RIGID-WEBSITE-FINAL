@@ -1,15 +1,13 @@
 import { CognitoIdentityProviderClient, ListUsersInGroupCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { corsHeaders } from './shared/cors';
 
 const cognito = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (event: any) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('Get Residents Request:', JSON.stringify(event, null, 2));
 
   try {
     // Get user info from Cognito authorizer
@@ -17,7 +15,10 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+        },
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
@@ -37,7 +38,10 @@ export const handler = async (event: any) => {
     if (!isAuthorized) {
       return {
         statusCode: 403,
-        headers,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+        },
         body: JSON.stringify({ message: 'Access denied. Admin or staff role required.' }),
       };
     }
@@ -48,7 +52,10 @@ export const handler = async (event: any) => {
     if (!userPoolId) {
       return {
         statusCode: 500,
-        headers,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+        },
         body: JSON.stringify({ message: 'User pool not configured' }),
       };
     }
@@ -153,7 +160,10 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
       body: JSON.stringify({
         residents: validResidents,
         count: validResidents.length,
@@ -163,7 +173,10 @@ export const handler = async (event: any) => {
     console.error('Error fetching residents:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
       body: JSON.stringify({
         message: 'Failed to fetch residents',
         error: error instanceof Error ? error.message : 'Unknown error',

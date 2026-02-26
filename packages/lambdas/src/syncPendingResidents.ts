@@ -1,15 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
-import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const cognitoClient = new CognitoIdentityProvider({});
 
 export const handler = async (event: any) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('Sync Pending Residents Request:', JSON.stringify(event, null, 2));
 
   const residentsTable = process.env.RESIDENTS_TABLE;
   const userPoolId = process.env.COGNITO_USER_POOL_ID;
@@ -18,7 +16,10 @@ export const handler = async (event: any) => {
     console.error('Missing environment variables');
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
       body: JSON.stringify({ message: 'Configuration error' }),
     };
   }
@@ -141,7 +142,10 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
       body: JSON.stringify({
         success: true,
         message: `Checked ${results.checked} pending residents. Activated: ${results.activated}, Still pending: ${results.stillPending}, Errors: ${results.errors}`,
@@ -152,7 +156,10 @@ export const handler = async (event: any) => {
     console.error('Error syncing pending residents:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
       body: JSON.stringify({
         message: 'Failed to sync pending residents',
         error: error instanceof Error ? error.message : 'Unknown error',

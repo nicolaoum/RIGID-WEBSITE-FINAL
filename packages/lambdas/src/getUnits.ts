@@ -1,7 +1,6 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -11,8 +10,7 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Returns all available units with building information
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = corsHeaders(origin);
+  console.log('GET /units request:', event);
 
   try {
     const result = await docClient.send(
@@ -23,14 +21,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify(result.Items || []),
     };
   } catch (error) {
     console.error('Error fetching units:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
       body: JSON.stringify({ error: 'Failed to fetch units' }),
     };
   }

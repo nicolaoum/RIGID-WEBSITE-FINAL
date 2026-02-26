@@ -1,7 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { fetchCurrentUser, isAuthenticated } from '../lib/auth';
-import { getNotices, getBuildings as fetchBuildings, postNotice, deleteNotice, Notice, Building } from '../lib/api';
+import { getCurrentUser, getAccessToken } from '../lib/auth';
+
+interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  type: 'info' | 'warning' | 'urgent';
+  publishedAt: string;
+  buildingId?: string | null;
+}
+
+interface Building {
+  id: string;
+  name: string;
+  address: string;
+}
 
 export default function Announcements() {
   const [user, setUser] = useState<any>(null);
@@ -46,7 +60,7 @@ export default function Announcements() {
 
   const loadData = async () => {
     try {
-      const currentUser = await fetchCurrentUser();
+      const currentUser = getCurrentUser();
       setUser(currentUser);
 
       const userIsStaff = currentUser?.groups?.includes('admin') || currentUser?.groups?.includes('staff') || false;
@@ -57,14 +71,31 @@ export default function Announcements() {
         return;
       }
 
-      // Fetch notices and buildings via secure api.ts helpers (proxy handles auth)
-      const [noticesData, buildingsData] = await Promise.all([
-        getNotices(),
-        fetchBuildings(),
+      const accessToken = getAccessToken();
+
+      // Fetch notices and buildings
+      const [noticesResponse, buildingsResponse] = await Promise.all([
+        fetch('/api/proxy/notices', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }),
+        fetch('/api/proxy/buildings', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }),
       ]);
 
-      setNotices(Array.isArray(noticesData) ? noticesData : []);
-      setBuildings(Array.isArray(buildingsData) ? buildingsData : []);
+      if (noticesResponse.ok) {
+        const noticesData = await noticesResponse.json();
+        setNotices(Array.isArray(noticesData) ? noticesData : []);
+      }
+
+      if (buildingsResponse.ok) {
+        const buildingsData = await buildingsResponse.json();
+        setBuildings(Array.isArray(buildingsData) ? buildingsData : []);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -78,13 +109,28 @@ export default function Announcements() {
     setMessage('');
 
     try {
-      // Use secure api.ts helper — proxy handles auth via HttpOnly cookie
-      const result = await postNotice({
-        title: formData.title,
-        content: formData.content,
-        type: formData.type,
-        buildingId: formData.buildingId || undefined,
+      const accessToken = getAccessToken();
+
+      // Call the postNotice Lambda endpoint
+      const response = await fetch('/api/proxy/notices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          content: formData.content,
+          type: formData.type,
+          buildingId: formData.buildingId || null,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to post notice: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
       
       // Add the returned notice to the local list
       if (result.notice) {
@@ -109,8 +155,17 @@ export default function Announcements() {
     
     setDeleting(noticeId);
     try {
-      // Use secure api.ts helper — proxy handles auth via HttpOnly cookie
-      await deleteNotice(noticeId);
+      const accessToken = getAccessToken();
+      const response = await fetch(`/api/proxy/notices/${noticeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete notice: ${response.status}`);
+      }
 
       // Remove from local state
       setNotices(notices.filter(n => n.id !== noticeId));
