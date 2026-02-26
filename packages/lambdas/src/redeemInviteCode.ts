@@ -155,7 +155,33 @@ export const handler = async (event: any) => {
       throw error;
     }
 
-    // STEP 2: Check if resident record already exists
+    // STEP 2: Check if unit already has an active resident (prevent duplicates)
+    const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
+    const unitOccupants = await docClient.send(
+      new ScanCommand({
+        TableName: process.env.RESIDENTS_TABLE,
+        FilterExpression: 'buildingId = :bldg AND unitNumber = :unit AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':bldg': inviteCode.buildingId || 'unassigned',
+          ':unit': inviteCode.unitNumber,
+          ':active': 'active',
+        },
+      })
+    );
+
+    if (unitOccupants.Items && unitOccupants.Items.length > 0) {
+      // Unit already has an active resident — only allow if it's the same person (re-registration)
+      const currentOccupant = unitOccupants.Items[0];
+      if (currentOccupant.email !== emailLower) {
+        console.log(`Unit ${inviteCode.unitNumber} in building ${inviteCode.buildingId} already occupied by ${currentOccupant.email}. Rejecting ${emailLower}.`);
+        return response(409, {
+          message: 'This unit already has an active resident. Please contact management if you believe this is an error.',
+        });
+      }
+    }
+
+    // STEP 3: Check if resident record already exists for this email
     const existingResident = await docClient.send(
       new QueryCommand({
         TableName: process.env.RESIDENTS_TABLE,
@@ -211,7 +237,7 @@ export const handler = async (event: any) => {
       );
     }
 
-    // STEP 3: Mark invite code as used
+    // STEP 4: Mark invite code as used
     await docClient.send(
       new UpdateCommand({
         TableName: process.env.INVITE_CODES_TABLE,
@@ -226,7 +252,7 @@ export const handler = async (event: any) => {
       })
     );
 
-    // STEP 4: Send email verification code (skip for existing users who are already verified)
+    // STEP 5: Send email verification code (skip for existing users who are already verified)
     let requiresVerification = false;
     if (!isExistingUser) {
       // Generate a 6-digit verification code

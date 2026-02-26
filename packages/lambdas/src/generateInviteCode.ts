@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { randomBytes } from 'crypto';
 
 const client = new DynamoDBClient({});
@@ -53,6 +53,26 @@ export const handler = async (event: any) => {
     }
 
     const unit = unitResult.Item;
+
+    // Check if unit already has an active resident
+    const unitOccupants = await docClient.send(
+      new ScanCommand({
+        TableName: process.env.RESIDENTS_TABLE,
+        FilterExpression: 'buildingId = :bldg AND unitNumber = :unit AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':bldg': unit.buildingId || 'unassigned',
+          ':unit': unit.unitNumber,
+          ':active': 'active',
+        },
+      })
+    );
+
+    const isOccupied = unitOccupants.Items && unitOccupants.Items.length > 0;
+    if (isOccupied) {
+      const occupant = unitOccupants.Items![0];
+      console.log(`Warning: Unit ${unit.unitNumber} in ${unit.buildingName} is occupied by ${occupant.email}. Generating invite code anyway (staff override).`);
+    }
 
     // Invalidate any existing unused codes for this unit
     const existingCodes = await docClient.send(
@@ -124,11 +144,14 @@ export const handler = async (event: any) => {
     );
 
     return response(201, {
-      message: 'Invite code generated successfully',
+      message: isOccupied
+        ? 'Invite code generated — note: this unit already has an active resident.'
+        : 'Invite code generated successfully',
       code,
       unitNumber: unit.unitNumber,
       buildingName: unit.buildingName,
       expiresAt: expiresAt.toISOString(),
+      isOccupied,
     });
   } catch (error) {
     console.error('Error generating invite code:', error);

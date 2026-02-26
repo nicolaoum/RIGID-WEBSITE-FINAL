@@ -548,6 +548,7 @@ export class RigidInfraStack extends cdk.Stack {
     });
     inviteCodesTable.grantReadWriteData(generateInviteCodeLambda);
     unitsTable.grantReadData(generateInviteCodeLambda);
+    residentsTable.grantReadData(generateInviteCodeLambda);
 
     // GET /invite-codes (list codes - staff/admin only)
     const getInviteCodesLambda = new lambda.Function(this, 'GetInviteCodesFunction', {
