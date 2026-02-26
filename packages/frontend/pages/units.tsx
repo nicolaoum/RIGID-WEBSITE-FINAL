@@ -29,6 +29,7 @@ export default function UnitsPage() {
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showCodeModal, setShowCodeModal] = useState<{code: string; unitNumber: string; buildingName: string} | null>(null);
+  const [showAllUnits, setShowAllUnits] = useState(false);
 
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
@@ -104,8 +105,11 @@ export default function UnitsPage() {
   };
 
   const filteredUnits = buildingFilter
-    ? units.filter(u => u.buildingId === buildingFilter && (isStaff || u.available))
-    : units.filter(u => isStaff || u.available);
+    ? units.filter(u => u.buildingId === buildingFilter && ((isStaff && showAllUnits) || u.available))
+    : units.filter(u => (isStaff && showAllUnits) || u.available);
+
+  const availableCount = units.filter(u => u.available).length;
+  const totalCount = units.length;
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,9 +265,11 @@ export default function UnitsPage() {
       {/* Units Section */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-12">
+          <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Available Units</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                {isStaff && showAllUnits ? 'All Units' : 'Available Units'}
+              </h1>
               {buildingFilter && (
                 <Link href="/units" className="text-sm text-blue-600 hover:text-blue-800">
                   ← View all units
@@ -279,6 +285,34 @@ export default function UnitsPage() {
               </button>
             )}
           </div>
+
+          {/* Staff-only toggle bar */}
+          {isStaff && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-600">
+                  Showing <strong className="text-gray-900">{filteredUnits.length}</strong> of <strong className="text-gray-900">{totalCount}</strong> units
+                  {!showAllUnits && <span className="text-emerald-600"> ({availableCount} available)</span>}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-500">Available only</span>
+                <button
+                  onClick={() => setShowAllUnits(!showAllUnits)}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                    showAllUnits ? 'bg-emerald-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
+                      showAllUnits ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-gray-500">Show all</span>
+              </div>
+            </div>
+          )}
 
           {/* Add Unit Form */}
           {showAddForm && (
@@ -412,7 +446,13 @@ export default function UnitsPage() {
           {/* Units Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredUnits.map((unit) => (
-              <div key={unit.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition relative">
+              <div key={unit.id} className={`bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition relative ${!unit.available && isStaff ? 'ring-2 ring-orange-300' : ''}`}>
+                {/* Occupied badge for staff */}
+                {isStaff && !unit.available && (
+                  <div className="absolute top-4 left-4 z-10">
+                    <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow">Occupied</span>
+                  </div>
+                )}
                 {isStaff && (
                   <div className="absolute top-4 right-4 z-10 flex gap-2">
                     <button
