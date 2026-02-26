@@ -67,6 +67,9 @@ export const handler = async (event: any) => {
       const dbResult = await docClient.send(
         new ScanCommand({
           TableName: residentsTableName,
+          FilterExpression: 'attribute_not_exists(#status) OR #status <> :inactive',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: { ':inactive': 'inactive' },
         })
       );
       
