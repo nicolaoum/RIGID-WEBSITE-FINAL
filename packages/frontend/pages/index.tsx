@@ -293,6 +293,12 @@ export default function Home() {
               Go to Portal
             </Link>
             <Link
+              href="/join"
+              className="inline-flex items-center justify-center bg-yellow-500 text-gray-900 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-yellow-400 transition-all duration-300 shadow-lg"
+            >
+              🔑 Join With Invite Code
+            </Link>
+            <Link
               href="/contact"
               className="inline-flex items-center justify-center border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-all duration-300"
             >
@@ -342,6 +348,12 @@ function Navigation() {
                 {item}
               </Link>
             ))}
+            <Link
+              href="/join"
+              className={`text-base font-semibold tracking-wide px-4 py-2 rounded-lg transition-all ${scrolled ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-emerald-500/90 text-white hover:bg-emerald-500'}`}
+            >
+              Join
+            </Link>
           </div>
           <div className="flex items-center space-x-4">
             {user ? (
