@@ -1,6 +1,6 @@
  import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { registerResident, getBuildings, Building } from '../lib/api';
 
 export default function Register() {
@@ -273,11 +273,7 @@ function Navigation() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   return (

@@ -1,19 +1,22 @@
 /**
  * Authentication utilities for Cognito Hosted UI
- * Handles login, logout, token management, and session state
+ * 
+ * SECURITY: Tokens are stored ONLY in HttpOnly cookies set by the server.
+ * Client-side JavaScript never has access to raw JWT tokens.
+ * The proxy (/api/proxy) reads cookies server-side and forwards the auth header.
+ * User info is fetched from /api/me which reads the cookie server-side.
  */
 
 const COGNITO_HOSTED_UI = process.env.NEXT_PUBLIC_COGNITO_HOSTED_UI!;
-const COGNITO_LOGOUT = process.env.NEXT_PUBLIC_COGNITO_LOGOUT!;
-const COGNITO_TOKEN_URL = process.env.NEXT_PUBLIC_COGNITO_TOKEN_URL!;
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID!;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI!;
-const LOGOUT_REDIRECT_URI = process.env.NEXT_PUBLIC_LOGOUT_REDIRECT_URI!;
 
-const TOKEN_KEY = 'rigid_access_token';
-const REFRESH_TOKEN_KEY = 'rigid_refresh_token';
-const ID_TOKEN_KEY = 'rigid_id_token';
-const USER_KEY = 'rigid_user';
+// Legacy localStorage keys — used only for migration cleanup
+const LEGACY_KEYS = ['rigid_access_token', 'rigid_refresh_token', 'rigid_id_token', 'rigid_user'];
+
+// In-memory user cache (lives only for the page session)
+let cachedUser: User | null = null;
+let userFetchPromise: Promise<User | null> | null = null;
 
 export interface User {
   email: string;
@@ -48,182 +51,100 @@ export const login = () => {
 };
 
 /**
- * Logout and redirect to Cognito logout endpoint
+ * Logout — clears cookies server-side and redirects to Cognito logout
  */
 export const logout = () => {
-  // Clear local tokens
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(ID_TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-  }
+  // Clear legacy localStorage data
+  cleanupLegacyStorage();
+  cachedUser = null;
+  userFetchPromise = null;
 
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    logout_uri: LOGOUT_REDIRECT_URI,
-  });
-
-  window.location.href = `${COGNITO_LOGOUT}?${params.toString()}`;
+  // Server-side route clears HttpOnly cookies and redirects to Cognito
+  window.location.href = '/api/auth/logout';
 };
 
 /**
- * Exchange authorization code for tokens
+ * Remove any legacy tokens from localStorage (migration cleanup)
  */
-export const exchangeCodeForTokens = async (code: string): Promise<TokenResponse> => {
-  const params = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: CLIENT_ID,
-    code,
-    redirect_uri: REDIRECT_URI,
-  });
-
-  const response = await fetch(COGNITO_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params.toString(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to exchange code for tokens');
-  }
-
-  return response.json();
-};
-
-/**
- * Refresh tokens using refresh token
- */
-export const refreshTokens = async (): Promise<TokenResponse | null> => {
-  try {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) {
-      console.log('No refresh token available');
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: CLIENT_ID,
-      refresh_token: refreshToken,
-    });
-
-    const response = await fetch(COGNITO_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-    });
-
-    if (!response.ok) {
-      console.error('Token refresh failed:', response.status);
-      return null;
-    }
-
-    const tokens = await response.json();
-    saveTokens(tokens);
-    console.log('Tokens refreshed successfully');
-    return tokens;
-  } catch (error) {
-    console.error('Error refreshing tokens:', error);
-    return null;
-  }
-};
-
-/**
- * Save tokens to localStorage
- */
-export const saveTokens = (tokens: TokenResponse) => {
+const cleanupLegacyStorage = () => {
   if (typeof window === 'undefined') return;
-
-  localStorage.setItem(TOKEN_KEY, tokens.access_token);
-  localStorage.setItem(ID_TOKEN_KEY, tokens.id_token);
-  if (tokens.refresh_token) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-  }
-
-  // Decode and save user info from ID token
-  const user = parseJWT(tokens.id_token);
-  if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-  }
+  LEGACY_KEYS.forEach((key) => {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  });
 };
 
 /**
- * Get access token from localStorage or cookies
+ * Fetch the current user from /api/me (reads HttpOnly cookie server-side).
+ * Returns cached result if available.
  */
-export const getAccessToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  
-  // Try localStorage first
-  const token = localStorage.getItem(ID_TOKEN_KEY);
-  if (token) return token;
-  
-  // Fallback to cookies
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'rigid_id_token') {
-      return value;
-    }
-  }
-  
-  return null;
-};
+export const fetchCurrentUser = async (): Promise<User | null> => {
+  // Return cache if we have it
+  if (cachedUser) return cachedUser;
 
-/**
- * Get ID token from localStorage or cookies
- */
-export const getIdToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  
-  // Try localStorage first
-  const token = localStorage.getItem(ID_TOKEN_KEY);
-  if (token) return token;
-  
-  // Fallback to cookies
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'rigid_id_token') {
-      // Also save to localStorage for future use
-      localStorage.setItem(ID_TOKEN_KEY, value);
-      
-      // Parse and save user info
-      const user = parseJWT(value);
-      if (user) {
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
+  // Deduplicate concurrent calls
+  if (userFetchPromise) return userFetchPromise;
+
+  userFetchPromise = (async () => {
+    try {
+      const res = await fetch('/api/me', { credentials: 'same-origin' });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        cachedUser = data.user;
+        // Also store in localStorage for synchronous reads by getCurrentUser
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('rigid_user', JSON.stringify(data.user));
+        }
+        return data.user;
       }
-      
-      return value;
+      return null;
+    } catch {
+      return null;
+    } finally {
+      userFetchPromise = null;
     }
-  }
-  
-  return null;
+  })();
+
+  return userFetchPromise;
 };
 
 /**
- * Get current user from localStorage or parse from token
+ * Get current user — synchronous. Returns cached user or localStorage fallback.
+ * Call fetchCurrentUser() first for the most up-to-date data.
  */
 export const getCurrentUser = (): User | null => {
+  if (cachedUser) return cachedUser;
   if (typeof window === 'undefined') return null;
-  
-  // Try localStorage first
-  const userStr = localStorage.getItem(USER_KEY);
+
+  const userStr = localStorage.getItem('rigid_user');
   if (userStr) {
-    return JSON.parse(userStr);
+    try {
+      const user = JSON.parse(userStr);
+      cachedUser = user;
+      return user;
+    } catch { /* ignore */ }
   }
-  
-  // Try to get from token
-  const token = getIdToken();
-  if (token) {
-    return parseJWT(token);
-  }
-  
   return null;
+};
+
+/**
+ * Get access token — returns a truthy sentinel so existing `if (token)` checks work.
+ * The actual token is managed by HttpOnly cookies; the proxy reads it server-side.
+ * This is kept for backward compatibility with api.ts which checks `if (token)`.
+ */
+export const getAccessToken = (): string | null => {
+  // If we know the user is logged in, return a sentinel
+  if (cachedUser) return 'cookie-managed';
+  if (typeof window !== 'undefined' && localStorage.getItem('rigid_user')) return 'cookie-managed';
+  return null;
+};
+
+/**
+ * Get ID token — same as getAccessToken for backward compatibility
+ */
+export const getIdToken = (): string | null => {
+  return getAccessToken();
 };
 
 /**
@@ -234,130 +155,63 @@ export const isAuthenticated = (): boolean => {
 };
 
 /**
- * Parse JWT token (simple base64 decode, no verification)
+ * Refresh tokens server-side via /api/auth/refresh
  */
-const parseJWT = (token: string): User | null => {
+export const refreshTokens = async (): Promise<boolean> => {
   try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
 
-    const payload = JSON.parse(jsonPayload);
-    return {
-      email: payload.email,
-      name: payload.name,
-      sub: payload.sub,
-      groups: payload['cognito:groups'],
-      'custom:apartmentNumber': payload['custom:apartmentNumber'],
-      'custom:buildingId': payload['custom:buildingId'],
-      phone_number: payload.phone_number,
-    };
-  } catch (error) {
-    console.error('Failed to parse JWT:', error);
-    return null;
-  }
-};
-
-/**
- * Check if the stored token is valid for the current Cognito configuration
- * This helps detect when tokens from a different region/pool are stored
- */
-export const isTokenValidForCurrentConfig = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
-  const token = localStorage.getItem(ID_TOKEN_KEY);
-  if (!token) return false;
-  
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    
-    const payload = JSON.parse(jsonPayload);
-    
-    // Check if token is expired
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      console.log('Token is expired');
+    if (!res.ok) {
+      console.error('Token refresh failed:', res.status);
+      cachedUser = null;
       return false;
     }
-    
-    // Check if token issuer matches current Cognito configuration
-    // The issuer should contain the current user pool ID
-    const expectedPoolId = process.env.NEXT_PUBLIC_USER_POOL_ID;
-    if (expectedPoolId && payload.iss) {
-      const issuerContainsPoolId = payload.iss.includes(expectedPoolId);
-      if (!issuerContainsPoolId) {
-        console.log('Token issuer does not match current Cognito pool. Expected:', expectedPoolId, 'Got:', payload.iss);
-        return false;
-      }
-    }
-    
+
+    // Re-fetch user info with the new token
+    cachedUser = null;
+    userFetchPromise = null;
+    await fetchCurrentUser();
+    console.log('Tokens refreshed successfully');
     return true;
   } catch (error) {
-    console.error('Error validating token:', error);
+    console.error('Error refreshing tokens:', error);
     return false;
   }
 };
 
 /**
- * Clear all stored auth data (for invalid/stale tokens)
+ * Check if the session is still valid by calling /api/me
  */
-export const clearAuthData = () => {
-  if (typeof window === 'undefined') return;
-  
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(ID_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+export const isTokenValidForCurrentConfig = (): boolean => {
+  // We can't check synchronously with HttpOnly cookies.
+  // Return true if we have cached user; the refresh interval will catch expiry.
+  return !!cachedUser || !!(typeof window !== 'undefined' && localStorage.getItem('rigid_user'));
 };
 
 /**
- * Fetch user info from Cognito userinfo endpoint to get custom attributes
+ * Clear all stored auth data
  */
-export const fetchUserInfoFromCognito = async (): Promise<User | null> => {
-  try {
-    const accessToken = getAccessToken();
-    if (!accessToken) return null;
-
-    const userInfoUrl = `${process.env.NEXT_PUBLIC_COGNITO_DOMAIN}/oauth2/userinfo`;
-    const response = await fetch(userInfoUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch user info:', response.status);
-      return null;
-    }
-
-    const userInfo = await response.json();
-    console.log('User info from Cognito:', userInfo);
-    
-    return {
-      email: userInfo.email,
-      name: userInfo.name,
-      sub: userInfo.sub,
-      groups: userInfo['cognito:groups'],
-      'custom:apartmentNumber': userInfo['custom:apartmentNumber'],
-      'custom:buildingId': userInfo['custom:buildingId'],
-      phone_number: userInfo.phone_number,
-    };
-  } catch (error) {
-    console.error('Error fetching user info from Cognito:', error);
-    return null;
-  }
+export const clearAuthData = () => {
+  cachedUser = null;
+  userFetchPromise = null;
+  cleanupLegacyStorage();
 };
 
+/**
+ * Save tokens — no-op in the secure model (tokens are in HttpOnly cookies)
+ * Kept for backward compatibility.
+ */
+export const saveTokens = (_tokens: TokenResponse) => {
+  // No-op — tokens are managed by HttpOnly cookies
+};
+
+/**
+ * Exchange code for tokens — no-op in the secure model (callback handler does this)
+ * Kept for backward compatibility.
+ */
+export const exchangeCodeForTokens = async (_code: string): Promise<TokenResponse> => {
+  throw new Error('Token exchange is handled server-side by /api/callback');
+};

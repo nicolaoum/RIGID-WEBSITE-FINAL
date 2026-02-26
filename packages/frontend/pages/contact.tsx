@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '@/lib/auth';
+import { sanitizeInput, sanitizeEmail, sanitizePhone } from '@/lib/sanitize';
 
 export default function Contact() {
   const [user, setUser] = useState<any>(null);
@@ -25,21 +26,33 @@ export default function Contact() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries`, {
+      // Sanitize all inputs before sending
+      const sanitized = {
+        name: sanitizeInput(formData.name, 100),
+        email: sanitizeEmail(formData.email),
+        phone: sanitizePhone(formData.phone),
+        subject: sanitizeInput(formData.subject, 200),
+        message: sanitizeInput(formData.message, 5000),
+      };
+
+      if (!sanitized.email) {
+        alert('Please enter a valid email address.');
+        setSending(false);
+        return;
+      }
+
+      const response = await fetch('/api/proxy/inquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        credentials: 'same-origin',
+        body: JSON.stringify(sanitized),
       });
       if (response.ok) {
         setSubmitted(true);

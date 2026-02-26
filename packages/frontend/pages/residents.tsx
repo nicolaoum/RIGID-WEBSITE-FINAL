@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { addResident, getBuildings, Building, getResidents, Resident, deleteResident } from '../lib/api';
 
 export default function Residents() {
@@ -25,7 +25,7 @@ export default function Residents() {
 
   const loadData = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await fetchCurrentUser() || getCurrentUser();
       setUser(currentUser);
 
       const userIsAdmin = currentUser?.groups?.includes('admin') || currentUser?.groups?.includes('staff') || false;
@@ -279,11 +279,7 @@ function Navigation() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   return (

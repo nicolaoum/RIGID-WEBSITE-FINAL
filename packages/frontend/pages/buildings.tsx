@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { Building, getBuildings } from '../lib/api';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 
 // Static image imports — bundled by Next.js into /_next/static/
 import pieriasImg from '../public/pierias-building.jpg';
@@ -42,11 +42,7 @@ export default function BuildingsPage() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   return (

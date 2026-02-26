@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { getCurrentUser, getAccessToken } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { sendAnnouncementEmail } from '../lib/api';
 
 interface Notice {
@@ -74,7 +74,7 @@ export default function Announcements() {
 
   const loadData = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await fetchCurrentUser() || getCurrentUser();
       setUser(currentUser);
 
       const userIsStaff = currentUser?.groups?.includes('admin') || currentUser?.groups?.includes('staff') || false;
@@ -85,19 +85,13 @@ export default function Announcements() {
         return;
       }
 
-      const accessToken = getAccessToken();
-
-      // Fetch notices and buildings
+      // Fetch notices and buildings — auth handled by proxy via HttpOnly cookie
       const [noticesResponse, buildingsResponse] = await Promise.all([
         fetch('/api/proxy/notices', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
+          credentials: 'same-origin',
         }),
         fetch('/api/proxy/buildings', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
+          credentials: 'same-origin',
         }),
       ]);
 
@@ -123,15 +117,13 @@ export default function Announcements() {
     setMessage('');
 
     try {
-      const accessToken = getAccessToken();
-
-      // Call the postNotice Lambda endpoint
+      // Call the postNotice Lambda endpoint — auth handled by proxy
       const response = await fetch('/api/proxy/notices', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
         },
+        credentials: 'same-origin',
         body: JSON.stringify({
           title: formData.title,
           content: formData.content,
@@ -195,12 +187,9 @@ export default function Announcements() {
     
     setDeleting(noticeId);
     try {
-      const accessToken = getAccessToken();
       const response = await fetch(`/api/proxy/notices/${noticeId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+        credentials: 'same-origin',
       });
 
       if (!response.ok) {

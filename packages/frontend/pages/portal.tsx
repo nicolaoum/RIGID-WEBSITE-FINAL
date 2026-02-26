@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, User, Ticket, Notice, Resident, Building, Inquiry } from '../lib/api';
 
 export default function Portal() {
@@ -23,7 +23,8 @@ export default function Portal() {
 
   const loadUserData = async () => {
     try {
-      const currentUser = getCurrentUser();
+      // Use fetchCurrentUser to get user from HttpOnly cookie via /api/me
+      const currentUser = await fetchCurrentUser() || getCurrentUser();
       console.log('Current user:', currentUser);
       
       setUser(currentUser);
@@ -226,11 +227,7 @@ function Navigation() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   return (

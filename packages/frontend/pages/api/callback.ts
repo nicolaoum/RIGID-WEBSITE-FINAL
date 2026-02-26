@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 /**
  * OAuth callback handler for Cognito
- * Exchanges authorization code for tokens and redirects with tokens as URL params
+ * Exchanges authorization code for tokens and stores them ONLY in HttpOnly cookies.
+ * Tokens are NEVER exposed in URLs or to client-side JavaScript.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { code, error } = req.query;
@@ -50,24 +51,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const tokens = await response.json();
 
-    // Set tokens as HTTP-only cookies (no Secure flag for localhost)
-    const maxAge = tokens.expires_in || 3600; // Default to 1 hour
-    
-    res.setHeader('Set-Cookie', [
-      `rigid_access_token=${tokens.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
-      `rigid_id_token=${tokens.id_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`,
-      tokens.refresh_token ? `rigid_refresh_token=${tokens.refresh_token}; Path=/; Max-Age=${maxAge * 24}; HttpOnly; SameSite=Lax` : '',
-    ].filter(Boolean));
+    // Store tokens ONLY in HttpOnly Secure cookies — never in URL
+    const maxAge = tokens.expires_in || 3600;
+    const isSecure = process.env.NODE_ENV === 'production';
+    const secureSuffix = isSecure ? '; Secure' : '';
 
-    // Also redirect with tokens in URL for client-side localStorage
-    const redirectParams = new URLSearchParams({
-      access_token: tokens.access_token,
-      id_token: tokens.id_token,
-      refresh_token: tokens.refresh_token || '',
-      expires_in: tokens.expires_in.toString(),
-    });
+    const cookies = [
+      `rigid_access_token=${tokens.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secureSuffix}`,
+      `rigid_id_token=${tokens.id_token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secureSuffix}`,
+    ];
 
-    res.redirect(`/?${redirectParams.toString()}`);
+    if (tokens.refresh_token) {
+      cookies.push(
+        `rigid_refresh_token=${tokens.refresh_token}; Path=/; Max-Age=${maxAge * 24}; HttpOnly; SameSite=Lax${secureSuffix}`
+      );
+    }
+
+    res.setHeader('Set-Cookie', cookies);
+
+    // Redirect with a simple flag — no tokens in URL
+    res.redirect('/?auth=success');
   } catch (err) {
     console.error('Token exchange error:', err);
     res.redirect('/?error=token_exchange_failed');

@@ -1,9 +1,9 @@
 /**
  * API client for communicating with AWS API Gateway
- * Handles authentication headers and request/response formatting
+ * 
+ * SECURITY: Auth tokens are managed server-side via HttpOnly cookies.
+ * The proxy reads the cookie and injects the Authorization header.
  */
-
-import { getAccessToken } from './auth';
 
 // Route all API calls through the local Next.js proxy to avoid browser CORS issues.
 const API_URL = '/api/proxy';
@@ -105,25 +105,27 @@ export interface ResidentCheck {
 
 /**
  * Generic API request wrapper
+ * 
+ * SECURITY: Auth tokens are stored in HttpOnly cookies. The proxy (/api/proxy)
+ * reads the cookie server-side and injects the Authorization header.
+ * The client never sends raw tokens — just cookies via credentials: 'same-origin'.
  */
 const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
-  const token = getAccessToken();
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  // Don't send Authorization header from client — proxy reads HttpOnly cookie
+  delete headers['Authorization'];
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'same-origin', // Send cookies so proxy can read auth token
   });
 
   if (!response.ok) {

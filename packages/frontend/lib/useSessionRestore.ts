@@ -1,44 +1,45 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { refreshTokens, isTokenValidForCurrentConfig, clearAuthData } from './auth';
+import { fetchCurrentUser, refreshTokens, clearAuthData } from './auth';
 
 /**
- * Hook to automatically restore user session from localStorage on app startup
- * and refresh tokens every 50 minutes to maintain session
+ * Hook to restore user session from HttpOnly cookies on app startup
+ * and refresh tokens every 50 minutes to maintain session.
+ *
+ * SECURITY: Tokens are never accessed client-side. We call /api/me
+ * which reads the HttpOnly cookie server-side and returns user info.
  */
 export const useSessionRestore = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // Only run once on initial mount
-    if (router.isReady) {
-      const savedUser = localStorage.getItem('rigid_user');
-      const savedToken = localStorage.getItem('rigid_id_token');
+    if (!router.isReady) return;
 
-      // If user was previously logged in, validate the token
-      if (savedUser && savedToken) {
-        // Check if token is valid for current Cognito configuration
-        if (!isTokenValidForCurrentConfig()) {
-          console.log('Stored token is invalid or from different Cognito pool - clearing auth data');
-          clearAuthData();
-          // Don't redirect - just clear the stale data so user can log in fresh
-        } else {
-          console.log('Session restored from localStorage');
-        }
+    // Clean up any legacy localStorage tokens from old auth flow
+    ['rigid_access_token', 'rigid_refresh_token', 'rigid_id_token'].forEach((key) => {
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    });
+
+    // Fetch user info from HttpOnly cookie via /api/me
+    fetchCurrentUser().then((user) => {
+      if (user) {
+        console.log('Session restored from HttpOnly cookie');
+      } else {
+        // No valid session — clear stale localStorage user
+        clearAuthData();
       }
+    });
 
-      // Set up token refresh interval (every 50 minutes)
-      // This keeps the session alive as long as the user has the browser open
-      const refreshInterval = setInterval(async () => {
-        console.log('Attempting to refresh tokens...');
-        const result = await refreshTokens();
-        if (!result) {
-          console.log('Token refresh failed - clearing auth data');
-          clearAuthData();
-        }
-      }, 50 * 60 * 1000); // 50 minutes
+    // Set up token refresh interval (every 50 minutes)
+    const refreshInterval = setInterval(async () => {
+      console.log('Attempting to refresh tokens...');
+      const success = await refreshTokens();
+      if (!success) {
+        console.log('Token refresh failed - clearing auth data');
+        clearAuthData();
+      }
+    }, 50 * 60 * 1000);
 
-      return () => clearInterval(refreshInterval);
-    }
+    return () => clearInterval(refreshInterval);
   }, [router.isReady]);
 };

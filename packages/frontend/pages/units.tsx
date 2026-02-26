@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Unit, getUnits, User } from '../lib/api';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 
 export default function UnitsPage() {
   const router = useRouter();
@@ -27,18 +27,14 @@ export default function UnitsPage() {
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
-    window.location.href = '/api/logout';
+    logout();
   };
 
   useEffect(() => {
     const fetchData = async () => {
       const [unitsData, userData] = await Promise.all([
         getUnits(),
-        getCurrentUser(),
+        fetchCurrentUser(),
       ]);
       setUnits(unitsData);
       setUser(userData);
@@ -53,20 +49,19 @@ export default function UnitsPage() {
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('rigid_id_token');
-      
       const imageUrls: string[] = [];
       console.log('Uploading', imageFiles.length, 'images...');
       
       for (const file of imageFiles) {
         console.log('Processing file:', file.name, file.type);
         
-        const urlResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-url`, {
+        // Use proxy — auth token is read from HttpOnly cookie server-side
+        const urlResponse = await fetch('/api/proxy/get-upload-url', {
           method: 'POST',
           headers: { 
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          credentials: 'same-origin',
           body: JSON.stringify({
             fileName: file.name,
             contentType: file.type,
@@ -102,12 +97,12 @@ export default function UnitsPage() {
         imageUrls,
       });
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units`, {
+      const response = await fetch('/api/proxy/units', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'same-origin',
         body: JSON.stringify({
           ...newUnit,
           available: true,
@@ -145,12 +140,9 @@ export default function UnitsPage() {
     if (!confirm('Are you sure you want to delete this unit?')) return;
 
     try {
-      const token = localStorage.getItem('rigid_id_token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${unitId}`, {
+      const response = await fetch(`/api/proxy/units/${unitId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'same-origin',
       });
 
       if (response.ok) {
