@@ -155,7 +155,7 @@ export const handler = async (event: any) => {
       throw error;
     }
 
-    // STEP 2: Check if unit already has an active resident (prevent duplicates)
+    // STEP 2: Evict any previous residents from this unit (auto-replace)
     const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
     const unitOccupants = await docClient.send(
       new ScanCommand({
@@ -171,13 +171,45 @@ export const handler = async (event: any) => {
     );
 
     if (unitOccupants.Items && unitOccupants.Items.length > 0) {
-      // Unit already has an active resident — only allow if it's the same person (re-registration)
-      const currentOccupant = unitOccupants.Items[0];
-      if (currentOccupant.email !== emailLower) {
-        console.log(`Unit ${inviteCode.unitNumber} in building ${inviteCode.buildingId} already occupied by ${currentOccupant.email}. Rejecting ${emailLower}.`);
-        return response(409, {
-          message: 'This unit already has an active resident. Please contact management if you believe this is an error.',
-        });
+      for (const oldResident of unitOccupants.Items) {
+        // Skip if it's the same person re-registering
+        if (oldResident.email === emailLower) continue;
+
+        console.log(`Evicting previous resident ${oldResident.email} from unit ${inviteCode.unitNumber} in ${inviteCode.buildingName}`);
+
+        // Deactivate the old resident record
+        await docClient.send(
+          new UpdateCommand({
+            TableName: process.env.RESIDENTS_TABLE,
+            Key: { id: oldResident.id },
+            UpdateExpression: 'SET #status = :inactive, updatedAt = :now, evictedAt = :now, evictedBy = :reason',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':inactive': 'inactive',
+              ':now': new Date().toISOString(),
+              ':reason': `replaced by ${emailLower} via invite code`,
+            },
+          })
+        );
+
+        // Remove old resident from Cognito (delete their account)
+        if (oldResident.cognitoUsername) {
+          try {
+            await cognitoClient.adminRemoveUserFromGroup({
+              UserPoolId: userPoolId,
+              Username: oldResident.cognitoUsername,
+              GroupName: 'resident',
+            });
+            await cognitoClient.adminDeleteUser({
+              UserPoolId: userPoolId,
+              Username: oldResident.cognitoUsername,
+            });
+            console.log(`Deleted Cognito user ${oldResident.cognitoUsername} (${oldResident.email})`);
+          } catch (cognitoErr: any) {
+            // Don't fail the whole registration if cleanup fails
+            console.error(`Failed to delete old Cognito user ${oldResident.cognitoUsername}:`, cognitoErr.message);
+          }
+        }
       }
     }
 
