@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Unit, getUnits, User } from '../lib/api';
+import { Unit, getUnits, updateUnit, User } from '../lib/api';
 import { generateInviteCode, getInviteCodes, InviteCode } from '../lib/api';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 
@@ -218,6 +218,21 @@ export default function UnitsPage() {
     } catch (error) {
       console.error('Failed to delete unit:', error);
       alert('Failed to delete unit');
+    }
+  };
+
+  const handleToggleAvailability = async (unit: Unit) => {
+    const newStatus = !unit.available;
+    const action = newStatus ? 'put back on the market' : 'take off the market';
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} Unit ${unit.unitNumber}?`)) return;
+
+    try {
+      await updateUnit(unit.id, { available: newStatus });
+      // Update local state immediately
+      setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, available: newStatus } : u));
+    } catch (error) {
+      console.error('Failed to toggle unit availability:', error);
+      alert('Failed to update unit');
     }
   };
 
@@ -510,6 +525,18 @@ export default function UnitsPage() {
                     )}
                   </div>
                   <div className="space-y-2">
+                    {isStaff && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleAvailability(unit); }}
+                        className={`block w-full text-center py-2 rounded-lg transition font-semibold text-sm ${
+                          unit.available
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300'
+                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300'
+                        }`}
+                      >
+                        {unit.available ? '👁️‍🗨️ Take Off Market' : '🏷️ Put Back on Market'}
+                      </button>
+                    )}
                     {unit.videoUrl && (
                       <button
                         onClick={() => setSelectedUnit(unit)}

@@ -144,6 +144,16 @@ export const getUnits = async (): Promise<Unit[]> => {
 };
 
 /**
+ * Update a unit (staff/admin only)
+ */
+export const updateUnit = async (unitId: string, updates: Partial<Unit>): Promise<Unit> => {
+  return apiRequest<Unit>(`/units/${unitId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+};
+
+/**
  * Fetch all buildings
  */
 export const getBuildings = async (): Promise<Building[]> => {

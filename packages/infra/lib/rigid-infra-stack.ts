@@ -212,6 +212,18 @@ export class RigidInfraStack extends cdk.Stack {
     });
     unitsTable.grantReadWriteData(deleteUnitLambda);
 
+    // PATCH /units/{id} (staff only)
+    const updateUnitLambda = new lambda.Function(this, 'UpdateUnitFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'updateUnit.handler',
+      code: lambda.Code.fromAsset(lambdaPath),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: lambdaEnvironment,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    unitsTable.grantReadWriteData(updateUnitLambda);
+
     // GET /buildings
     const getBuildingsLambda = new lambda.Function(this, 'GetBuildingsFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -645,6 +657,10 @@ export class RigidInfraStack extends cdk.Stack {
     
     const unitResource = unitsResource.addResource('{id}');
     unitResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteUnitLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    unitResource.addMethod('PATCH', new apigateway.LambdaIntegration(updateUnitLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
