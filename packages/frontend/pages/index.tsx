@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { getBuildings, Building } from '@/lib/api';
-import { getCurrentUser } from '@/lib/auth';
+import { fetchCurrentUser, isAuthenticated } from '@/lib/auth';
 
 // Static image imports — bundled by Next.js into /_next/static/
 import pieriasImg from '../public/pierias-building.jpg';
@@ -28,46 +28,11 @@ export default function Home() {
   const [buildings, setBuildings] = useState<Building[]>([]);
 
   useEffect(() => {
-    // Handle OAuth callback tokens from URL
-    const { access_token, id_token, refresh_token } = router.query;
-    
-    if (id_token && typeof id_token === 'string') {
-      console.log('Saving tokens from callback...');
-      localStorage.setItem('rigid_id_token', id_token);
-      
-      if (access_token && typeof access_token === 'string') {
-        localStorage.setItem('rigid_access_token', access_token);
-      }
-      
-      if (refresh_token && typeof refresh_token === 'string') {
-        localStorage.setItem('rigid_refresh_token', refresh_token);
-      }
-      
-      // Parse and save user info from ID token
-      try {
-        const base64Url = id_token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        
-        const tokenData = JSON.parse(jsonPayload);
-        
-        // Create user object with properly formatted groups
-        const user = {
-          ...tokenData,
-          groups: tokenData['cognito:groups'] || [],
-          username: tokenData['cognito:username'] || tokenData.username,
-        };
-        
-        localStorage.setItem('rigid_user', JSON.stringify(user));
-        console.log('User saved:', user.email, 'Groups:', user.groups);
-      } catch (error) {
-        console.error('Failed to parse user token:', error);
-      }
-      
-      // Full reload to clean URL and refresh nav with user data
-      window.location.href = '/';
+    // Handle post-login redirect — clean the URL without exposing tokens
+    const { login: loginStatus } = router.query;
+    if (loginStatus === 'success') {
+      // Clean the URL of the login parameter
+      router.replace('/', undefined, { shallow: true });
       return;
     }
     
@@ -344,8 +309,10 @@ function Navigation() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
+    // Fetch user info securely from the server (reads HttpOnly cookie)
+    if (isAuthenticated()) {
+      fetchCurrentUser().then(setUser);
+    }
 
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
@@ -353,10 +320,7 @@ function Navigation() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('rigid_id_token');
-    localStorage.removeItem('rigid_access_token');
-    localStorage.removeItem('rigid_refresh_token');
-    localStorage.removeItem('rigid_user');
+    // Server-side logout clears HttpOnly cookies
     window.location.href = '/api/logout';
   };
 

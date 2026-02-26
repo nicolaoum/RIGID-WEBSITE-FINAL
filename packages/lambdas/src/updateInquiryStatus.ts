@@ -1,27 +1,23 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const dynamoClient = new DynamoDB({});
-
-const CORS_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Credentials': true,
-};
 
 /**
  * PUT /inquiries/{id}
  * Updates the status of an inquiry (staff only)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  console.log('PUT /inquiries/{id} request:', event);
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     const id = event.pathParameters?.id;
     if (!id) {
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers,
         body: JSON.stringify({ success: false, message: 'Missing inquiry id' }),
       };
     }
@@ -32,7 +28,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!status || !['new', 'pending', 'done'].includes(status)) {
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid status. Must be: new, pending, or done' }),
       };
     }
@@ -52,14 +48,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({ success: true, message: `Inquiry marked as ${status}` }),
     };
   } catch (error) {
     console.error('Error updating inquiry status:', error);
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }

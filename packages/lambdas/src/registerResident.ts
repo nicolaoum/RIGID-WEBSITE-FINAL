@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -12,7 +13,8 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Status will be 'pending' until admin authorizes them
  */
 export const handler = async (event: any) => {
-  console.log('Resident Self-Registration Request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Get user info from Cognito authorizer
@@ -20,10 +22,7 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Unauthorized - authentication required' }),
       };
     }
@@ -36,10 +35,7 @@ export const handler = async (event: any) => {
     if (!email || !unitNumber) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Email and unit number are required' }),
       };
     }
@@ -62,10 +58,7 @@ export const handler = async (event: any) => {
     if (existingResult.Items && existingResult.Items.length > 0) {
       return {
         statusCode: 409,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'This email is already registered' }),
       };
     }
@@ -93,10 +86,7 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 201,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Registration request submitted successfully',
         resident: {
@@ -111,10 +101,7 @@ export const handler = async (event: any) => {
     console.error('Error in resident self-registration:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Failed to submit registration request',
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -1,20 +1,16 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const dynamoClient = new DynamoDB({});
-
-const CORS_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Credentials': true,
-};
 
 /**
  * GET /inquiries
  * Returns all inquiries (staff/admin only - protected by Cognito authorizer)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  console.log('GET /inquiries request:', event);
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     const inquiriesTable = process.env.INQUIRIES_TABLE || 'rigid-inquiries';
@@ -33,20 +29,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       status: item.status?.S || 'new',
       createdAt: item.createdAt?.S,
     })).sort((a, b) => {
-      // Sort newest first
       return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
     });
 
     return {
       statusCode: 200,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify(inquiries),
     };
   } catch (error) {
     console.error('Error fetching inquiries:', error);
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify([]),
     };
   }

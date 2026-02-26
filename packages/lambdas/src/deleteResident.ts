@@ -1,13 +1,15 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient, AdminRemoveUserFromGroupCommand, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 export const handler = async (event: any) => {
-  console.log('Delete Resident Request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Get user info from Cognito authorizer
@@ -15,10 +17,7 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
@@ -38,10 +37,7 @@ export const handler = async (event: any) => {
     if (!isAuthorized) {
       return {
         statusCode: 403,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Access denied. Admin or staff role required.' }),
       };
     }
@@ -57,10 +53,7 @@ export const handler = async (event: any) => {
     if (!residentId) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Resident ID is required' }),
       };
     }
@@ -273,20 +266,14 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({ message: 'Resident deleted successfully' }),
     };
   } catch (error) {
     console.error('Error deleting resident:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Failed to delete resident',
         error: error instanceof Error ? error.message : 'Unknown error',

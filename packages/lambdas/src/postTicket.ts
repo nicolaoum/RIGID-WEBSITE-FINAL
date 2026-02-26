@@ -1,6 +1,8 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { corsHeaders } from './shared/cors';
+import { sanitizeText, sanitizeEnum } from './shared/sanitize';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -10,27 +12,32 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Creates a new maintenance ticket (requires authentication)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  console.log('POST /tickets request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Extract user from Cognito authorizer context
-    console.log('Authorizer:', event.requestContext.authorizer);
     const userEmail = event.requestContext.authorizer?.claims?.email || 'unknown@example.com';
     const userId = event.requestContext.authorizer?.claims?.sub || 'unknown';
-    console.log('User:', { userId, userEmail });
 
     const body = JSON.parse(event.body || '{}');
-    const { subject, description, priority, residentName, unitNumber, buildingId, buildingName, phoneNumber, allowEntry } = body;
+
+    // Sanitize inputs
+    const subject = sanitizeText(body.subject, 500);
+    const description = sanitizeText(body.description, 10000);
+    const priority = sanitizeEnum(body.priority, ['low', 'medium', 'high', 'urgent']);
+    const residentName = body.residentName ? sanitizeText(body.residentName, 200) : undefined;
+    const unitNumber = body.unitNumber ? sanitizeText(body.unitNumber, 50) : undefined;
+    const buildingId = body.buildingId ? sanitizeText(body.buildingId, 100) : undefined;
+    const buildingName = body.buildingName ? sanitizeText(body.buildingName, 200) : undefined;
+    const phoneNumber = body.phoneNumber ? sanitizeText(body.phoneNumber, 30) : undefined;
+    const allowEntry = body.allowEntry === true;
 
     // Validate required fields
     if (!subject || !description || !priority) {
       return {
         statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': 'true',
-        },
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Missing required fields: subject, description, priority',
@@ -100,15 +107,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       })
     );
 
-    console.log('Ticket created:', ticket);
+    console.log('Ticket created:', ticketId);
 
     return {
       statusCode: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      },
+      headers,
       body: JSON.stringify({
         success: true,
         ticketId,
@@ -119,11 +122,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     console.error('Error creating ticket:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      },
+      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to create ticket',

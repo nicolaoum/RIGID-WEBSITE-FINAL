@@ -1,11 +1,13 @@
 import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const cognitoClient = new CognitoIdentityProvider({});
 const dynamoClient = new DynamoDB({});
 
 export const handler = async (event: any) => {
-  console.log('Add Resident Request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Get user info from Cognito authorizer
@@ -13,10 +15,7 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
@@ -36,10 +35,7 @@ export const handler = async (event: any) => {
     if (!isAdmin) {
       return {
         statusCode: 403,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Access denied. Admin role required.' }),
       };
     }
@@ -52,10 +48,7 @@ export const handler = async (event: any) => {
     if (!email || !unitNumber) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Email and unit number are required' }),
       };
     }
@@ -67,10 +60,7 @@ export const handler = async (event: any) => {
     if (!userPoolId) {
       return {
         statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'User pool ID not configured' }),
       };
     }
@@ -265,10 +255,7 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Resident added successfully',
         residentId: residentId,
@@ -283,10 +270,7 @@ export const handler = async (event: any) => {
     console.error('Error adding resident:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Failed to add resident',
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -1,6 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -10,7 +11,8 @@ const docClient = DynamoDBDocumentClient.from(client);
  * Deletes a unit (staff/admin only)
  */
 export const handler: APIGatewayProxyHandler = async (event) => {
-  console.log('DELETE /units/{id} request:', event);
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     const { id } = event.pathParameters || {};
@@ -18,11 +20,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!id) {
       return {
         statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': 'true',
-        },
+        headers,
         body: JSON.stringify({ error: 'Unit ID is required' }),
       };
     }
@@ -36,22 +34,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': 'true',
-      },
+      headers,
       body: JSON.stringify({ success: true }),
     };
   } catch (error) {
     console.error('Error deleting unit:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': 'true',
-      },
+      headers,
       body: JSON.stringify({ error: 'Failed to delete unit' }),
     };
   }

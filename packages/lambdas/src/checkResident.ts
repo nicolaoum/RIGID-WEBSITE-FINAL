@@ -1,11 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
 export const handler = async (event: any) => {
-  console.log('Check Resident Request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Get user email from Cognito claims
@@ -13,10 +15,7 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Unauthorized', isResident: false }),
       };
     }
@@ -27,10 +26,7 @@ export const handler = async (event: any) => {
     if (!userEmail) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Email not found in token', isResident: false }),
       };
     }
@@ -133,10 +129,7 @@ export const handler = async (event: any) => {
 
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ isResident: true, isStaff: true, residentInfo: residentDataToReturn }),
       };
     }
@@ -324,10 +317,7 @@ export const handler = async (event: any) => {
     
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({ 
         isResident: finalIsResident || isResident,
         residentInfo: residentDataToReturn,
@@ -338,10 +328,7 @@ export const handler = async (event: any) => {
     console.error('Error checking resident status:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Failed to check resident status',
         isResident: false,

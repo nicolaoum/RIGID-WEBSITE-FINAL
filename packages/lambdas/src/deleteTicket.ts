@@ -1,11 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { corsHeaders } from './shared/cors';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
 export const handler = async (event: any) => {
-  console.log('Delete Ticket Request:', JSON.stringify(event, null, 2));
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = corsHeaders(origin);
 
   try {
     // Get user info from Cognito authorizer
@@ -13,10 +15,7 @@ export const handler = async (event: any) => {
     if (!claims) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
@@ -30,10 +29,7 @@ export const handler = async (event: any) => {
     if (!ticketId) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Ticket ID is required' }),
       };
     }
@@ -43,10 +39,7 @@ export const handler = async (event: any) => {
     if (!ticketsTable) {
       return {
         statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Tickets table not configured' }),
       };
     }
@@ -66,10 +59,7 @@ export const handler = async (event: any) => {
     if (!queryResult.Items || queryResult.Items.length === 0) {
       return {
         statusCode: 404,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'Ticket not found' }),
       };
     }
@@ -92,10 +82,7 @@ export const handler = async (event: any) => {
     if (!isStaff && !isTicketOwner) {
       return {
         statusCode: 403,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-        },
+        headers,
         body: JSON.stringify({ message: 'You do not have permission to delete this ticket' }),
       };
     }
@@ -115,10 +102,7 @@ export const handler = async (event: any) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         success: true,
         message: 'Ticket deleted successfully',
@@ -128,10 +112,7 @@ export const handler = async (event: any) => {
     console.error('Error deleting ticket:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': '*',
-      },
+      headers,
       body: JSON.stringify({
         message: 'Failed to delete ticket',
         error: error instanceof Error ? error.message : 'Unknown error',
