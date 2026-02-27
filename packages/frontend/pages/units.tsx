@@ -112,6 +112,20 @@ export default function UnitsPage() {
   const availableCount = units.filter(u => u.available).length;
   const totalCount = units.length;
 
+  // Determine a safe content type for image uploads (mobile can send empty or HEIC types)
+  const getImageContentType = (file: File): string => {
+    if (file.type && file.type !== 'image/heic' && file.type !== 'image/heif') {
+      return file.type;
+    }
+    // Fallback based on extension
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const extMap: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', webp: 'image/webp', heic: 'image/jpeg', heif: 'image/jpeg',
+    };
+    return extMap[ext || ''] || 'image/jpeg';
+  };
+
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -119,7 +133,8 @@ export default function UnitsPage() {
       console.log('Uploading', imageFiles.length, 'images...');
       
       for (const file of imageFiles) {
-        console.log('Processing file:', file.name, file.type);
+        const contentType = getImageContentType(file);
+        console.log('Processing file:', file.name, 'original type:', file.type, 'using:', contentType);
         
         // Use proxy — auth token is read from HttpOnly cookie server-side
         const urlResponse = await fetch('/api/proxy/get-upload-url', {
@@ -129,8 +144,8 @@ export default function UnitsPage() {
           },
           credentials: 'same-origin',
           body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type,
+            fileName: file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg'),
+            contentType,
           }),
         });
         
@@ -145,7 +160,7 @@ export default function UnitsPage() {
         
         const uploadResponse = await fetch(uploadUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': file.type },
+          headers: { 'Content-Type': contentType },
           body: file,
         });
         
