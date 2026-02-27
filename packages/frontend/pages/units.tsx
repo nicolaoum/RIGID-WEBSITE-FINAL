@@ -636,7 +636,7 @@ export default function UnitsPage() {
               >
                 {/* Hero Image Gallery */}
                 {allImages.length > 0 && (
-                  <div className="relative w-full h-72 sm:h-80 lg:h-96 bg-gray-900 flex-shrink-0">
+                  <div className="relative w-full h-80 sm:h-96 lg:h-[28rem] bg-gray-900 flex-shrink-0">
                     <img
                       src={allImages[galleryIndex] || allImages[0]}
                       alt={`Unit ${selectedUnit.unitNumber} - Photo ${galleryIndex + 1}`}
@@ -762,7 +762,36 @@ export default function UnitsPage() {
                   </div>
 
                   {/* Video Tour */}
-                  {selectedUnit.videoUrl && (
+                  {selectedUnit.videoUrl && (() => {
+                    // Parse YouTube video ID from various URL formats
+                    const getYouTubeEmbedUrl = (url: string): string => {
+                      let videoId = '';
+                      try {
+                        const parsed = new URL(url);
+                        if (parsed.hostname.includes('youtu.be')) {
+                          videoId = parsed.pathname.slice(1);
+                        } else if (parsed.hostname.includes('youtube.com')) {
+                          if (parsed.pathname.includes('/embed/')) {
+                            videoId = parsed.pathname.split('/embed/')[1];
+                          } else if (parsed.pathname.includes('/shorts/')) {
+                            videoId = parsed.pathname.split('/shorts/')[1];
+                          } else {
+                            videoId = parsed.searchParams.get('v') || '';
+                          }
+                        }
+                      } catch {
+                        // Fallback: try regex
+                        const match = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
+                        videoId = match ? match[1] : '';
+                      }
+                      if (videoId) {
+                        // Remove any trailing path segments
+                        videoId = videoId.split('/')[0].split('?')[0].split('&')[0];
+                        return `https://www.youtube.com/embed/${videoId}`;
+                      }
+                      return url; // fallback to original if can't parse
+                    };
+                    return (
                     <div className="px-5 py-5 border-b">
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         <span className="text-red-500">▶</span> Video Tour
@@ -770,15 +799,17 @@ export default function UnitsPage() {
                       <div className="aspect-video rounded-xl overflow-hidden shadow-sm">
                         <iframe
                           className="w-full h-full"
-                          src={selectedUnit.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                          src={getYouTubeEmbedUrl(selectedUnit.videoUrl)}
                           title="Unit Video Tour"
                           frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          referrerPolicy="strict-origin-when-cross-origin"
                           allowFullScreen
                         ></iframe>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}}
 
                   {/* Action buttons */}
                   <div className="px-5 py-5">
