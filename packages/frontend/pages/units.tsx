@@ -263,11 +263,11 @@ export default function UnitsPage() {
       {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <Link href="/" className="text-xl sm:text-2xl font-bold text-gray-900">
               Rigid Residential
             </Link>
-            <div className="flex gap-6">
+            <div className="hidden sm:flex gap-6">
               <Link href="/" className="text-gray-600 hover:text-gray-900">Home</Link>
               <Link href="/buildings" className="text-gray-600 hover:text-gray-900">Buildings</Link>
               <Link href="/portal" className="text-gray-600 hover:text-gray-900">Resident Portal</Link>
@@ -276,12 +276,12 @@ export default function UnitsPage() {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
-                  <span className="text-gray-700 font-medium">
+                  <span className="text-gray-700 font-medium text-sm sm:text-base truncate max-w-[120px] sm:max-w-none">
                     {user.email}
                   </span>
                   <button
                     onClick={handleLogout}
-                    className="text-gray-700 hover:text-gray-900 font-semibold"
+                    className="text-gray-700 hover:text-gray-900 font-semibold text-sm sm:text-base"
                   >
                     Logout
                   </button>
@@ -296,15 +296,22 @@ export default function UnitsPage() {
               )}
             </div>
           </div>
+          {/* Mobile nav links */}
+          <div className="flex sm:hidden gap-4 mt-3 overflow-x-auto text-sm">
+            <Link href="/" className="text-gray-600 hover:text-gray-900 whitespace-nowrap">Home</Link>
+            <Link href="/buildings" className="text-gray-600 hover:text-gray-900 whitespace-nowrap">Buildings</Link>
+            <Link href="/portal" className="text-gray-600 hover:text-gray-900 whitespace-nowrap">Portal</Link>
+            <Link href="/contact" className="text-gray-600 hover:text-gray-900 whitespace-nowrap">Contact</Link>
+          </div>
         </div>
       </nav>
 
       {/* Units Section */}
-      <section className="py-16">
+      <section className="py-8 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
                 {isStaff && showAllUnits ? 'All Units' : 'Available Units'}
               </h1>
               {buildingFilter && (
@@ -587,26 +594,26 @@ export default function UnitsPage() {
 
           {/* Unit Details Modal */}
           {selectedUnit && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedUnit(null)}>
-              <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-start p-6 border-b">
-                  <h3 className="text-2xl font-bold text-gray-900">{selectedUnit.buildingName} - Unit {selectedUnit.unitNumber}</h3>
-                  <button onClick={() => setSelectedUnit(null)} className="text-gray-500 hover:text-gray-700 text-2xl">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto" onClick={() => setSelectedUnit(null)}>
+              <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-4 sm:my-8" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-start p-4 sm:p-6 border-b">
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">{selectedUnit.buildingName} - Unit {selectedUnit.unitNumber}</h3>
+                  <button onClick={() => setSelectedUnit(null)} className="text-gray-500 hover:text-gray-700 text-2xl ml-2">
                     ×
                   </button>
                 </div>
                 
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {selectedUnit.images && selectedUnit.images.length > 0 ? (
                     <div>
                       <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {selectedUnit.images.map((img, idx) => (
                           <img 
                             key={idx} 
                             src={img} 
                             alt={`Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}`} 
-                            className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
+                            className="w-full h-40 sm:h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
                             onClick={() => setZoomedImage({ src: img, alt: `Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}` })}
                             onError={(e) => {
                               console.error('Image failed to load:', img);
@@ -619,11 +626,11 @@ export default function UnitsPage() {
                   ) : selectedUnit.imageUrl ? (
                     <div>
                       <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <img 
                           src={selectedUnit.imageUrl} 
                           alt={`Unit ${selectedUnit.unitNumber}`} 
-                          className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
+                          className="w-full h-40 sm:h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
                           onClick={() => setZoomedImage({ src: selectedUnit.imageUrl!, alt: `Unit ${selectedUnit.unitNumber}` })}
                           onError={(e) => {
                             console.error('Image failed to load:', selectedUnit.imageUrl);
@@ -678,17 +685,17 @@ export default function UnitsPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
                     <button 
                       onClick={() => setSelectedUnit(null)}
-                      className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+                      className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold text-sm sm:text-base"
                     >
                       Close
                     </button>
                     <Link
                       href="/contact"
                       onClick={() => setSelectedUnit(null)}
-                      className="flex-1 bg-gray-900 text-white text-center py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+                      className="flex-1 bg-gray-900 text-white text-center py-3 rounded-lg hover:bg-gray-800 transition font-semibold text-sm sm:text-base"
                     >
                       Inquire About This Unit
                     </Link>
