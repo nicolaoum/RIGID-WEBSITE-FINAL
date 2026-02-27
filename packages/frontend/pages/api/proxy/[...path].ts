@@ -13,7 +13,7 @@ const ALLOWED_PATHS = [
   'inquiries',
   'check-resident',
   'register-resident',
-  'get-upload-url',
+  'upload-url',
   'sync-pending-residents',
   'send-announcement-email',
   'invite-codes',

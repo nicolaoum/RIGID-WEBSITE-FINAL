@@ -137,7 +137,7 @@ export default function UnitsPage() {
         console.log('Processing file:', file.name, 'original type:', file.type, 'using:', contentType);
         
         // Use proxy — auth token is read from HttpOnly cookie server-side
-        const urlResponse = await fetch('/api/proxy/get-upload-url', {
+        const urlResponse = await fetch('/api/proxy/upload-url', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
