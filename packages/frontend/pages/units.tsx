@@ -536,7 +536,7 @@ export default function UnitsPage() {
                     <p className="text-gray-700">
                       {unit.bedrooms} BD | {unit.bathrooms} BA | {unit.sqft} sqft
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">€{unit.rent?.toLocaleString()}/mo</p>
+                    <p className="text-2xl font-bold text-gray-900">€{(unit.rent ?? unit.price)?.toLocaleString()}/mo</p>
                     {unit.availableDate && (
                       <p className="text-sm text-gray-600">Available: {unit.availableDate}</p>
                     )}
@@ -700,7 +700,7 @@ export default function UnitsPage() {
                   <div className="px-5 py-4 bg-gradient-to-r from-gray-900 to-gray-800">
                     <div className="flex items-baseline justify-between">
                       <div>
-                        <span className="text-3xl sm:text-4xl font-bold text-white">€{selectedUnit.rent?.toLocaleString()}</span>
+                        <span className="text-3xl sm:text-4xl font-bold text-white">€{(selectedUnit.rent ?? selectedUnit.price)?.toLocaleString()}</span>
                         <span className="text-white/70 text-sm ml-1">/month</span>
                       </div>
                       {selectedUnit.available ? (
