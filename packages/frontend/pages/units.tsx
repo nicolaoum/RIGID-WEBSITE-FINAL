@@ -31,6 +31,7 @@ export default function UnitsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showCodeModal, setShowCodeModal] = useState<{code: string; unitNumber: string; buildingName: string} | null>(null);
   const [showAllUnits, setShowAllUnits] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<{src: string; alt: string} | null>(null);
 
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
@@ -598,14 +599,15 @@ export default function UnitsPage() {
                 <div className="p-6 space-y-6">
                   {selectedUnit.images && selectedUnit.images.length > 0 ? (
                     <div>
-                      <h4 className="font-semibold text-lg mb-3">Photos</h4>
+                      <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
                       <div className="grid grid-cols-2 gap-4">
                         {selectedUnit.images.map((img, idx) => (
                           <img 
                             key={idx} 
                             src={img} 
                             alt={`Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}`} 
-                            className="w-full h-48 object-cover rounded-lg"
+                            className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
+                            onClick={() => setZoomedImage({ src: img, alt: `Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}` })}
                             onError={(e) => {
                               console.error('Image failed to load:', img);
                               (e.target as HTMLImageElement).style.display = 'none';
@@ -616,12 +618,13 @@ export default function UnitsPage() {
                     </div>
                   ) : selectedUnit.imageUrl ? (
                     <div>
-                      <h4 className="font-semibold text-lg mb-3">Photos</h4>
+                      <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
                       <div className="grid grid-cols-2 gap-4">
                         <img 
                           src={selectedUnit.imageUrl} 
                           alt={`Unit ${selectedUnit.unitNumber}`} 
-                          className="w-full h-48 object-cover rounded-lg"
+                          className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
+                          onClick={() => setZoomedImage({ src: selectedUnit.imageUrl!, alt: `Unit ${selectedUnit.unitNumber}` })}
                           onError={(e) => {
                             console.error('Image failed to load:', selectedUnit.imageUrl);
                             (e.target as HTMLImageElement).style.display = 'none';
@@ -692,6 +695,27 @@ export default function UnitsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Zoomed Image Lightbox */}
+          {zoomedImage && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4 cursor-zoom-out"
+              onClick={() => setZoomedImage(null)}
+            >
+              <button 
+                onClick={() => setZoomedImage(null)} 
+                className="absolute top-4 right-4 text-white text-4xl font-light hover:text-gray-300 z-[61]"
+              >
+                ×
+              </button>
+              <img 
+                src={zoomedImage.src} 
+                alt={zoomedImage.alt} 
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
           )}
 
