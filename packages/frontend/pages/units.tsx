@@ -33,6 +33,10 @@ export default function UnitsPage() {
   const [showAllUnits, setShowAllUnits] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<{src: string; alt: string} | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [editingUnit, setEditingUnit] = useState<{
+    bedrooms: number; bathrooms: number; sqft: number;
+    price: number; availableDate: string; videoUrl: string;
+  } | null>(null);
 
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
@@ -251,10 +255,32 @@ export default function UnitsPage() {
 
     try {
       await updateUnit(unit.id, { available: newStatus });
-      // Update local state immediately
       setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, available: newStatus } : u));
     } catch (error) {
       console.error('Failed to toggle unit availability:', error);
+      alert('Failed to update unit');
+    }
+  };
+
+  const handleEditUnit = async () => {
+    if (!selectedUnit || !editingUnit) return;
+    try {
+      const updates: Record<string, any> = {
+        bedrooms: editingUnit.bedrooms,
+        bathrooms: editingUnit.bathrooms,
+        sqft: editingUnit.sqft,
+        price: editingUnit.price,
+        rent: editingUnit.price,
+        availableDate: editingUnit.availableDate,
+        videoUrl: editingUnit.videoUrl || null,
+      };
+      await updateUnit(selectedUnit.id, updates);
+      setUnits(prev => prev.map(u => u.id === selectedUnit.id ? { ...u, ...updates } : u));
+      setSelectedUnit({ ...selectedUnit, ...updates });
+      setEditingUnit(null);
+      alert('Unit updated successfully!');
+    } catch (error) {
+      console.error('Failed to update unit:', error);
       alert('Failed to update unit');
     }
   };
@@ -610,7 +636,7 @@ export default function UnitsPage() {
               >
                 {/* Hero Image Gallery */}
                 {allImages.length > 0 && (
-                  <div className="relative w-full h-56 sm:h-72 lg:h-80 bg-gray-900 flex-shrink-0">
+                  <div className="relative w-full h-72 sm:h-80 lg:h-96 bg-gray-900 flex-shrink-0">
                     <img
                       src={allImages[galleryIndex] || allImages[0]}
                       alt={`Unit ${selectedUnit.unitNumber} - Photo ${galleryIndex + 1}`}
@@ -756,6 +782,76 @@ export default function UnitsPage() {
 
                   {/* Action buttons */}
                   <div className="px-5 py-5">
+                    {isStaff && !editingUnit && (
+                      <button
+                        onClick={() => setEditingUnit({
+                          bedrooms: selectedUnit.bedrooms,
+                          bathrooms: selectedUnit.bathrooms,
+                          sqft: selectedUnit.sqft,
+                          price: selectedUnit.rent ?? selectedUnit.price ?? 0,
+                          availableDate: selectedUnit.availableDate || '',
+                          videoUrl: selectedUnit.videoUrl || '',
+                        })}
+                        className="w-full bg-amber-500 text-white py-3 rounded-xl hover:bg-amber-600 transition font-semibold text-sm sm:text-base mb-3 shadow-sm"
+                      >
+                        ✏️ Edit Unit
+                      </button>
+                    )}
+
+                    {editingUnit && (
+                      <div className="bg-gray-50 rounded-xl p-4 mb-4 border">
+                        <h4 className="font-semibold text-gray-900 mb-3">Edit Unit</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500">Bedrooms</label>
+                            <input type="number" min="1" max="10" value={editingUnit.bedrooms}
+                              onChange={(e) => setEditingUnit({ ...editingUnit, bedrooms: parseInt(e.target.value) || 1 })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Bathrooms</label>
+                            <input type="number" min="1" max="5" step="0.5" value={editingUnit.bathrooms}
+                              onChange={(e) => setEditingUnit({ ...editingUnit, bathrooms: parseFloat(e.target.value) || 1 })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Sq Ft</label>
+                            <input type="number" min="1" value={editingUnit.sqft}
+                              onChange={(e) => setEditingUnit({ ...editingUnit, sqft: parseInt(e.target.value) || 0 })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Rent (€/mo)</label>
+                            <input type="number" min="1" value={editingUnit.price}
+                              onChange={(e) => setEditingUnit({ ...editingUnit, price: parseInt(e.target.value) || 0 })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Available Date</label>
+                            <input type="date" value={editingUnit.availableDate}
+                              onChange={(e) => setEditingUnit({ ...editingUnit, availableDate: e.target.value })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">YouTube URL</label>
+                            <input type="url" value={editingUnit.videoUrl} placeholder="https://youtube.com/..."
+                              onChange={(e) => setEditingUnit({ ...editingUnit, videoUrl: e.target.value })}
+                              className="w-full px-3 py-2 border rounded-lg text-sm" />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={handleEditUnit}
+                            className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition font-semibold text-sm">
+                            ✓ Save Changes
+                          </button>
+                          <button onClick={() => setEditingUnit(null)}
+                            className="px-4 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition font-medium text-sm">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <Link
                         href="/contact"

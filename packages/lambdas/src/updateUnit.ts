@@ -31,7 +31,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const body = JSON.parse(event.body || '{}');
 
     // Only allow updating specific fields
-    const ALLOWED_FIELDS = ['available', 'rent', 'price', 'availableDate', 'videoUrl'];
+    const ALLOWED_FIELDS = ['available', 'rent', 'price', 'availableDate', 'videoUrl', 'bedrooms', 'bathrooms', 'sqft', 'unitNumber', 'buildingId', 'buildingName'];
     const updates: Record<string, any> = {};
 
     for (const field of ALLOWED_FIELDS) {
