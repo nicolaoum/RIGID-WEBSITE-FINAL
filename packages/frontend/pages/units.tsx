@@ -195,6 +195,11 @@ export default function UnitsPage() {
         const updatedUnits = await getUnits();
         setUnits(updatedUnits);
         alert('Unit added successfully!');
+      } else {
+        const errData = await response.json().catch(() => null);
+        const errMsg = errData?.error || errData?.message || response.statusText;
+        console.error('Unit creation failed:', response.status, errMsg);
+        alert(`Failed to add unit: ${errMsg}`);
       }
     } catch (error) {
       console.error('Failed to add unit:', error);
@@ -397,7 +402,7 @@ export default function UnitsPage() {
                   <input
                     type="number"
                     required
-                    min="500"
+                    min="1"
                     value={newUnit.sqft}
                     onChange={(e) => setNewUnit({ ...newUnit, sqft: parseInt(e.target.value) })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
