@@ -809,7 +809,7 @@ export default function UnitsPage() {
                       </div>
                     </div>
                     );
-                  })()}}
+                  })()}
 
                   {/* Action buttons */}
                   <div className="px-5 py-5">
