@@ -32,6 +32,7 @@ export default function UnitsPage() {
   const [showCodeModal, setShowCodeModal] = useState<{code: string; unitNumber: string; buildingName: string} | null>(null);
   const [showAllUnits, setShowAllUnits] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<{src: string; alt: string} | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const buildingFilter = router.query.building as string;
   const isStaff = user && (user.groups?.includes('staff') || user.groups?.includes('admin'));
@@ -515,7 +516,7 @@ export default function UnitsPage() {
                     </button>
                   </div>
                 )}
-                <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center cursor-pointer" onClick={() => setSelectedUnit(unit)}>
+                <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center cursor-pointer" onClick={() => { setGalleryIndex(0); setSelectedUnit(unit); }}>
                   {unit.imageUrl ? (
                     <img src={unit.imageUrl} alt={`Unit ${unit.unitNumber}`} className="w-full h-full object-cover" />
                   ) : (
@@ -568,14 +569,14 @@ export default function UnitsPage() {
                     )}
                     {unit.videoUrl && (
                       <button
-                        onClick={() => setSelectedUnit(unit)}
+                        onClick={() => { setGalleryIndex(0); setSelectedUnit(unit); }}
                         className="block w-full bg-red-600 text-white text-center py-2 rounded-lg hover:bg-red-700 transition mb-2"
                       >
                         📹 Watch Video Tour
                       </button>
                     )}
                     <button
-                      onClick={() => setSelectedUnit(unit)}
+                      onClick={() => { setGalleryIndex(0); setSelectedUnit(unit); }}
                       className="block w-full bg-blue-600 text-white text-center py-2 rounded-lg hover:bg-blue-700 transition mb-2"
                     >
                       View Details
@@ -593,60 +594,156 @@ export default function UnitsPage() {
           </div>
 
           {/* Unit Details Modal */}
-          {selectedUnit && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto" onClick={() => setSelectedUnit(null)}>
-              <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-4 sm:my-8" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-start p-4 sm:p-6 border-b">
-                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">{selectedUnit.buildingName} - Unit {selectedUnit.unitNumber}</h3>
-                  <button onClick={() => setSelectedUnit(null)} className="text-gray-500 hover:text-gray-700 text-2xl ml-2">
-                    ×
-                  </button>
-                </div>
-                
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                  {selectedUnit.images && selectedUnit.images.length > 0 ? (
-                    <div>
-                      <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        {selectedUnit.images.map((img, idx) => (
-                          <img 
-                            key={idx} 
-                            src={img} 
-                            alt={`Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}`} 
-                            className="w-full h-40 sm:h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
-                            onClick={() => setZoomedImage({ src: img, alt: `Unit ${selectedUnit.unitNumber} - Photo ${idx + 1}` })}
-                            onError={(e) => {
-                              console.error('Image failed to load:', img);
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
+          {selectedUnit && (() => {
+            const allImages = selectedUnit.images && selectedUnit.images.length > 0
+              ? selectedUnit.images
+              : selectedUnit.imageUrl ? [selectedUnit.imageUrl] : [];
+            return (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setSelectedUnit(null)}>
+              {/* Backdrop */}
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+              
+              {/* Modal */}
+              <div 
+                className="relative bg-white w-full sm:max-w-2xl lg:max-w-4xl sm:rounded-2xl shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col rounded-t-2xl sm:mx-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Hero Image Gallery */}
+                {allImages.length > 0 && (
+                  <div className="relative w-full h-56 sm:h-72 lg:h-80 bg-gray-900 flex-shrink-0">
+                    <img
+                      src={allImages[galleryIndex] || allImages[0]}
+                      alt={`Unit ${selectedUnit.unitNumber} - Photo ${galleryIndex + 1}`}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => setZoomedImage({ src: allImages[galleryIndex], alt: `Unit ${selectedUnit.unitNumber}` })}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    {/* Gradient overlay for text */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+                    
+                    {/* Close button */}
+                    <button 
+                      onClick={() => setSelectedUnit(null)} 
+                      className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition text-lg"
+                    >
+                      ✕
+                    </button>
+                    
+                    {/* Gallery nav arrows */}
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setGalleryIndex((galleryIndex - 1 + allImages.length) % allImages.length)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition text-xl"
+                        >
+                          ‹
+                        </button>
+                        <button
+                          onClick={() => setGalleryIndex((galleryIndex + 1) % allImages.length)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition text-xl"
+                        >
+                          ›
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Title overlay on image */}
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="text-white text-xl sm:text-2xl font-bold drop-shadow-lg">
+                        {selectedUnit.buildingName}
+                      </h3>
+                      <p className="text-white/90 text-sm sm:text-base drop-shadow">
+                        Unit {selectedUnit.unitNumber}
+                      </p>
+                    </div>
+                    
+                    {/* Dot indicators */}
+                    {allImages.length > 1 && (
+                      <div className="absolute bottom-3 right-4 flex gap-1.5">
+                        {allImages.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setGalleryIndex(idx)}
+                            className={`w-2 h-2 rounded-full transition ${idx === galleryIndex ? 'bg-white scale-125' : 'bg-white/50'}`}
                           />
                         ))}
                       </div>
-                    </div>
-                  ) : selectedUnit.imageUrl ? (
-                    <div>
-                      <h4 className="font-semibold text-lg mb-3">Photos <span className="text-sm text-gray-400 font-normal">(tap to zoom)</span></h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <img 
-                          src={selectedUnit.imageUrl} 
-                          alt={`Unit ${selectedUnit.unitNumber}`} 
-                          className="w-full h-40 sm:h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
-                          onClick={() => setZoomedImage({ src: selectedUnit.imageUrl!, alt: `Unit ${selectedUnit.unitNumber}` })}
-                          onError={(e) => {
-                            console.error('Image failed to load:', selectedUnit.imageUrl);
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                    )}
 
+                    {/* Tap to zoom hint */}
+                    <div className="absolute top-3 left-3 bg-black/40 text-white/80 text-xs px-2.5 py-1 rounded-full">
+                      📷 {galleryIndex + 1}/{allImages.length} · Tap to zoom
+                    </div>
+                  </div>
+                )}
+
+                {/* Thumbnail strip */}
+                {allImages.length > 1 && (
+                  <div className="flex gap-1.5 px-4 py-2.5 bg-gray-50 overflow-x-auto flex-shrink-0 border-b">
+                    {allImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setGalleryIndex(idx)}
+                        className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition ${
+                          idx === galleryIndex ? 'border-blue-500 ring-1 ring-blue-500' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className="overflow-y-auto flex-1">
+                  {/* Price banner */}
+                  <div className="px-5 py-4 bg-gradient-to-r from-gray-900 to-gray-800">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <span className="text-3xl sm:text-4xl font-bold text-white">€{selectedUnit.rent?.toLocaleString()}</span>
+                        <span className="text-white/70 text-sm ml-1">/month</span>
+                      </div>
+                      {selectedUnit.available ? (
+                        <span className="bg-emerald-500 text-white text-xs font-semibold px-3 py-1 rounded-full">Available</span>
+                      ) : (
+                        <span className="bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full">Occupied</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick stats */}
+                  <div className="grid grid-cols-4 divide-x divide-gray-200 border-b bg-white">
+                    <div className="py-4 text-center">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">{selectedUnit.bedrooms}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Beds</p>
+                    </div>
+                    <div className="py-4 text-center">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">{selectedUnit.bathrooms}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Baths</p>
+                    </div>
+                    <div className="py-4 text-center">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">{selectedUnit.sqft}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Sq Ft</p>
+                    </div>
+                    <div className="py-4 text-center">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                        {selectedUnit.availableDate 
+                          ? new Date(selectedUnit.availableDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : '—'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">Available</p>
+                    </div>
+                  </div>
+
+                  {/* Video Tour */}
                   {selectedUnit.videoUrl && (
-                    <div>
-                      <h4 className="font-semibold text-lg mb-3">Video Tour</h4>
-                      <div className="aspect-video">
+                    <div className="px-5 py-5 border-b">
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <span className="text-red-500">▶</span> Video Tour
+                      </h4>
+                      <div className="aspect-video rounded-xl overflow-hidden shadow-sm">
                         <iframe
-                          className="w-full h-full rounded-lg"
+                          className="w-full h-full"
                           src={selectedUnit.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
                           title="Unit Video Tour"
                           frameBorder="0"
@@ -657,53 +754,29 @@ export default function UnitsPage() {
                     </div>
                   )}
 
-                  <div>
-                    <h4 className="font-semibold text-lg mb-3">Details</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Bedrooms</p>
-                        <p className="font-semibold">{selectedUnit.bedrooms}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Bathrooms</p>
-                        <p className="font-semibold">{selectedUnit.bathrooms}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Square Feet</p>
-                        <p className="font-semibold">{selectedUnit.sqft}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Rent</p>
-                        <p className="font-semibold text-xl text-gray-900">€{selectedUnit.rent?.toLocaleString()}/mo</p>
-                      </div>
-                      {selectedUnit.availableDate && (
-                        <div className="col-span-2">
-                          <p className="text-sm text-gray-600">Available Date</p>
-                          <p className="font-semibold">{selectedUnit.availableDate}</p>
-                        </div>
-                      )}
+                  {/* Action buttons */}
+                  <div className="px-5 py-5">
+                    <div className="flex gap-3">
+                      <Link
+                        href="/contact"
+                        onClick={() => setSelectedUnit(null)}
+                        className="flex-1 bg-blue-600 text-white text-center py-3.5 rounded-xl hover:bg-blue-700 transition font-semibold text-sm sm:text-base shadow-sm"
+                      >
+                        ✉️ Inquire About This Unit
+                      </Link>
+                      <button 
+                        onClick={() => setSelectedUnit(null)}
+                        className="px-5 bg-gray-100 text-gray-600 py-3.5 rounded-xl hover:bg-gray-200 transition font-medium text-sm sm:text-base"
+                      >
+                        Close
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
-                    <button 
-                      onClick={() => setSelectedUnit(null)}
-                      className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold text-sm sm:text-base"
-                    >
-                      Close
-                    </button>
-                    <Link
-                      href="/contact"
-                      onClick={() => setSelectedUnit(null)}
-                      className="flex-1 bg-gray-900 text-white text-center py-3 rounded-lg hover:bg-gray-800 transition font-semibold text-sm sm:text-base"
-                    >
-                      Inquire About This Unit
-                    </Link>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Zoomed Image Lightbox */}
           {zoomedImage && (
