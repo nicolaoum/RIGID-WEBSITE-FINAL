@@ -29,9 +29,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       email: item.email?.S,
       phone: item.phone?.S || null,
       subject: item.subject?.S || null,
+      category: item.category?.S || 'general',
       message: item.message?.S,
       status: item.status?.S || 'new',
+      assignedTo: item.assignedTo?.S || null,
+      notes: item.notes?.S || null,
       createdAt: item.createdAt?.S,
+      updatedAt: item.updatedAt?.S,
     })).sort((a, b) => {
       // Sort newest first
       return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();

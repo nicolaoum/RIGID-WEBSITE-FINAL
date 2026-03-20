@@ -44,10 +44,16 @@ export interface Inquiry {
   email: string;
   phone?: string;
   subject?: string;
+  category?: 'general' | 'rental' | 'maintenance' | 'billing' | 'other';
+  buildingId?: string;
+  buildingName?: string;
   unitId?: string;
   message: string;
   status?: 'new' | 'read' | 'replied' | 'pending' | 'done';
+  assignedTo?: string;
+  notes?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Ticket {
@@ -112,7 +118,8 @@ export interface ResidentCheck {
  */
 const apiRequest = async <T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _isRetry = false
 ): Promise<T> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -127,6 +134,22 @@ const apiRequest = async <T>(
     headers,
     credentials: 'same-origin', // Send cookies so proxy can read auth token
   });
+
+  // If we get a 401 and haven't retried yet, try refreshing the token
+  if (response.status === 401 && !_isRetry) {
+    try {
+      const refreshRes = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (refreshRes.ok) {
+        // Retry the original request with the new token
+        return apiRequest<T>(endpoint, options, true);
+      }
+    } catch (refreshErr) {
+      console.error('Token refresh failed:', refreshErr);
+    }
+  }
 
   if (!response.ok) {
     const error = await response.text();
@@ -184,6 +207,26 @@ export const updateInquiryStatus = async (id: string, status: string): Promise<{
   return apiRequest(`/inquiries/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
+  });
+};
+
+/**
+ * Add internal note to inquiry (staff/admin only)
+ */
+export const addInquiryNote = async (id: string, notes: string): Promise<{ success: boolean; message: string }> => {
+  return apiRequest(`/inquiries/${id}/notes`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  });
+};
+
+/**
+ * Assign inquiry to staff member (staff/admin only)
+ */
+export const assignInquiry = async (id: string, assignedTo: string): Promise<{ success: boolean; message: string }> => {
+  return apiRequest(`/inquiries/${id}/assign`, {
+    method: 'PUT',
+    body: JSON.stringify({ assignedTo }),
   });
 };
 

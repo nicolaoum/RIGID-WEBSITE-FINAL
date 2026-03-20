@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
 import { getTickets, getAllTickets, getNotices, postTicket, updateTicketStatus, checkResident, getResidents, addResident, deleteResident, deleteTicket, getBuildings, getResidentInfo, syncPendingResidents, getInquiries, getUnits, generateInviteCode, getInviteCodes, User, Ticket, Notice, Resident, Building, Inquiry, Unit, InviteCode } from '../lib/api';
-import { QRCodeSVG } from 'qrcode.react';
+
+// Dynamic import QRCodeSVG with SSR disabled to avoid hydration issues
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((mod) => mod.QRCodeSVG),
+  { ssr: false, loading: () => <div style={{ width: 180, height: 180, background: '#f3f4f6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#9ca3af' }}>Loading QR...</div> }
+);
 
 export default function Portal() {
   const [user, setUser] = useState<User | null>(null);
@@ -547,6 +553,11 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
   const [showAnnouncementsTab, setShowAnnouncementsTab] = useState(false);
   const [showInquiriesTab, setShowInquiriesTab] = useState(false);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquirySearchQuery, setInquirySearchQuery] = useState('');
+  const [inquiryStatusFilter, setInquiryStatusFilter] = useState<string>('all');
+  const [inquiryCategoryFilter, setInquiryCategoryFilter] = useState<string>('all');
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [inquiryNotes, setInquiryNotes] = useState('');
   const [residents, setResidents] = useState<Resident[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('all');
@@ -859,74 +870,197 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
                 ↻ Refresh
               </button>
             </div>
+
+            {/* Search and Filters */}
+            <div className="mb-6 space-y-4">
+              <div>
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or subject..."
+                  value={inquirySearchQuery}
+                  onChange={(e) => setInquirySearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 text-white placeholder-gray-400 rounded-lg border border-gray-600 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Status</label>
+                  <select
+                    value={inquiryStatusFilter}
+                    onChange={(e) => setInquiryStatusFilter(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm focus:border-blue-500 outline-none"
+                  >
+                    <option value="all">All</option>
+                    <option value="new">New</option>
+                    <option value="pending">Pending</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Category</label>
+                  <select
+                    value={inquiryCategoryFilter}
+                    onChange={(e) => setInquiryCategoryFilter(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm focus:border-blue-500 outline-none"
+                  >
+                    <option value="all">All</option>
+                    <option value="general">General</option>
+                    <option value="rental">Rental</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="billing">Billing</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {inquiries.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
                 <p className="text-xl mb-2">No inquiries yet</p>
                 <p className="text-sm">Inquiries submitted through the contact form will appear here</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {inquiries.map((inquiry) => (
-                  <div key={inquiry.id} className={`bg-gray-800 rounded-xl p-6 border ${inquiry.status === 'new' ? 'border-yellow-500/50' : inquiry.status === 'done' ? 'border-green-500/50' : inquiry.status === 'pending' ? 'border-orange-500/50' : 'border-gray-700'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-bold text-lg">{inquiry.subject || 'No Subject'}</h4>
-                        <p className="text-gray-400 text-sm">
-                          From <span className="text-white font-medium">{inquiry.name}</span> — <a href={`mailto:${inquiry.email}`} className="text-blue-400 hover:text-blue-300">{inquiry.email}</a>
-                          {inquiry.phone && <span className="ml-2">· {inquiry.phone}</span>}
-                        </p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* List View */}
+                <div className="lg:col-span-1 space-y-2 max-h-[600px] overflow-y-auto">
+                  {inquiries
+                    .filter(inquiry => {
+                      const matchesSearch = inquirySearchQuery.toLowerCase() === '' ||
+                        inquiry.name?.toLowerCase().includes(inquirySearchQuery.toLowerCase()) ||
+                        inquiry.email?.toLowerCase().includes(inquirySearchQuery.toLowerCase()) ||
+                        inquiry.subject?.toLowerCase().includes(inquirySearchQuery.toLowerCase());
+                      const matchesStatus = inquiryStatusFilter === 'all' || inquiry.status === inquiryStatusFilter;
+                      const matchesCategory = inquiryCategoryFilter === 'all' || inquiry.category === inquiryCategoryFilter;
+                      return matchesSearch && matchesStatus && matchesCategory;
+                    })
+                    .map((inquiry) => (
+                      <button
+                        key={inquiry.id}
+                        onClick={() => {
+                          setSelectedInquiry(inquiry);
+                          setInquiryNotes(inquiry.notes || '');
+                        }}
+                        className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                          selectedInquiry?.id === inquiry.id
+                            ? 'bg-blue-900/30 border-blue-500'
+                            : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <p className="font-semibold text-sm text-white truncate">{inquiry.subject || 'No Subject'}</p>
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ml-2 ${
+                            inquiry.status === 'new' ? 'bg-yellow-500/20 text-yellow-400' :
+                            inquiry.status === 'done' ? 'bg-green-500/20 text-green-400' :
+                            inquiry.status === 'pending' ? 'bg-orange-500/20 text-orange-400' :
+                            'bg-gray-600/50 text-gray-300'
+                          }`}>
+                            {inquiry.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400">{inquiry.name}</p>
+                        <p className="text-xs text-gray-500">{new Date(inquiry.createdAt || '').toLocaleDateString()}</p>
+                      </button>
+                    ))}
+                </div>
+
+                {/* Detail View */}
+                <div className="lg:col-span-2">
+                  {selectedInquiry ? (
+                    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                      <div className="mb-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="text-xl font-bold text-white">{selectedInquiry.subject || 'No Subject'}</h4>
+                            <p className="text-gray-400 text-sm mt-1">
+                              From <span className="font-semibold">{selectedInquiry.name}</span>
+                            </p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            selectedInquiry.status === 'new' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            selectedInquiry.status === 'done' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            selectedInquiry.status === 'pending' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                            'bg-gray-600/50 text-gray-300 border border-gray-500/30'
+                          }`}>
+                            {selectedInquiry.status}
+                          </span>
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-300">
+                          <p><span className="text-gray-400">Email:</span> <a href={`mailto:${selectedInquiry.email}`} className="text-blue-400 hover:text-blue-300">{selectedInquiry.email}</a></p>
+                          {selectedInquiry.phone && <p><span className="text-gray-400">Phone:</span> {selectedInquiry.phone}</p>}
+                          {selectedInquiry.category && <p><span className="text-gray-400">Category:</span> <span className="capitalize">{selectedInquiry.category}</span></p>}
+                          <p><span className="text-gray-400">Received:</span> {new Date(selectedInquiry.createdAt || '').toLocaleString()}</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          inquiry.status === 'new' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                          inquiry.status === 'done' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                          inquiry.status === 'pending' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                          'bg-gray-600/50 text-gray-300 border border-gray-500/30'
-                        }`}>
-                          {inquiry.status || 'new'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                        </span>
+
+                      <div className="mb-4">
+                        <h5 className="font-semibold text-white mb-2">Message</h5>
+                        <p className="text-gray-300 text-sm leading-relaxed bg-gray-900/50 rounded-lg p-4">{selectedInquiry.message}</p>
                       </div>
-                    </div>
-                    <p className="text-gray-300 text-sm leading-relaxed bg-gray-900/50 rounded-lg p-4">{inquiry.message}</p>
-                    <div className="mt-3 flex gap-2">
-                      <a href={`mailto:${inquiry.email}?subject=Re: ${inquiry.subject || 'Your inquiry'}`}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition font-semibold">
-                        ↗ Reply via Email
-                      </a>
-                      {inquiry.status !== 'done' && (
+
+                      <div className="mb-4">
+                        <h5 className="font-semibold text-white mb-2">Internal Notes</h5>
+                        <textarea
+                          value={inquiryNotes}
+                          onChange={(e) => setInquiryNotes(e.target.value)}
+                          placeholder="Add internal notes..."
+                          className="w-full px-3 py-2 bg-gray-700 text-white placeholder-gray-400 rounded-lg border border-gray-600 focus:border-blue-500 outline-none resize-none"
+                          rows={4}
+                        />
                         <button
                           onClick={async () => {
                             try {
-                              const { updateInquiryStatus } = await import('../lib/api');
-                              await updateInquiryStatus(inquiry.id!, 'done');
+                              const { addInquiryNote } = await import('../lib/api');
+                              await addInquiryNote(selectedInquiry.id!, inquiryNotes);
                               loadInquiries();
                             } catch (e) { console.error(e); }
                           }}
-                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500 transition font-semibold"
+                          className="mt-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 transition font-semibold"
                         >
-                          ✓ Done
+                          💾 Save Notes
                         </button>
-                      )}
-                      {inquiry.status !== 'pending' && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const { updateInquiryStatus } = await import('../lib/api');
-                              await updateInquiryStatus(inquiry.id!, 'pending');
-                              loadInquiries();
-                            } catch (e) { console.error(e); }
-                          }}
-                          className="px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-500 transition font-semibold"
-                        >
-                          ⏳ Pending
-                        </button>
-                      )}
+                      </div>
+
+                      <div className="flex gap-2 flex-wrap">
+                        <a href={`mailto:${selectedInquiry.email}?subject=Re: ${selectedInquiry.subject || 'Your inquiry'}`}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition font-semibold">
+                          ↗ Reply via Email
+                        </a>
+                        {selectedInquiry.status !== 'done' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { updateInquiryStatus } = await import('../lib/api');
+                                await updateInquiryStatus(selectedInquiry.id!, 'done');
+                                loadInquiries();
+                              } catch (e) { console.error(e); }
+                            }}
+                            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500 transition font-semibold"
+                          >
+                            ✓ Mark Done
+                          </button>
+                        )}
+                        {selectedInquiry.status !== 'pending' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { updateInquiryStatus } = await import('../lib/api');
+                                await updateInquiryStatus(selectedInquiry.id!, 'pending');
+                                loadInquiries();
+                              } catch (e) { console.error(e); }
+                            }}
+                            className="px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-500 transition font-semibold"
+                          >
+                            ⏳ Mark Pending
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ) : (
+                    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center text-gray-400">
+                      <p>Select an inquiry to view details</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1439,14 +1573,18 @@ function StaffPortal({ tickets }: { tickets: Ticket[] }) {
 
                   {/* QR Code */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 inline-block">
-                    <QRCodeSVG
-                      value={`https://rigidrent.com/join?code=${generatedCode.code}`}
-                      size={180}
-                      level="M"
-                      includeMargin={false}
-                      bgColor="#ffffff"
-                      fgColor="#111827"
-                    />
+                    {generatedCode.code ? (
+                      <QRCodeSVG
+                        value={`${typeof window !== 'undefined' ? window.location.origin : 'https://rigidrent.com'}/join?code=${generatedCode.code}`}
+                        size={180}
+                        level="M"
+                        includeMargin
+                        bgColor="#ffffff"
+                        fgColor="#111827"
+                      />
+                    ) : (
+                      <div style={{ width: 180, height: 180, background: '#f3f4f6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#9ca3af' }}>QR unavailable</div>
+                    )}
                     <p className="text-xs text-gray-400 mt-2">Scan to register</p>
                   </div>
 

@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import dynamic from 'next/dynamic';
 import { Unit, getUnits, updateUnit, User } from '../lib/api';
 import { generateInviteCode, getInviteCodes, InviteCode } from '../lib/api';
-import { QRCodeSVG } from 'qrcode.react';
 import { getCurrentUser, fetchCurrentUser, logout } from '../lib/auth';
+
+// Dynamic import QRCodeSVG with SSR disabled to avoid hydration issues
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((mod) => mod.QRCodeSVG),
+  { ssr: false, loading: () => <div style={{ width: 180, height: 180, background: '#f3f4f6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#9ca3af' }}>Loading QR...</div> }
+);
 
 export default function UnitsPage() {
   const router = useRouter();
@@ -948,14 +954,18 @@ export default function UnitsPage() {
 
                   {/* QR Code */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 inline-block">
-                    <QRCodeSVG
-                      value={`https://rigidrent.com/join?code=${showCodeModal.code}`}
-                      size={180}
-                      level="M"
-                      includeMargin={false}
-                      bgColor="#ffffff"
-                      fgColor="#111827"
-                    />
+                    {showCodeModal.code ? (
+                      <QRCodeSVG
+                        value={`${typeof window !== 'undefined' ? window.location.origin : 'https://rigidrent.com'}/join?code=${showCodeModal.code}`}
+                        size={180}
+                        level="M"
+                        includeMargin
+                        bgColor="#ffffff"
+                        fgColor="#111827"
+                      />
+                    ) : (
+                      <div style={{ width: 180, height: 180, background: '#f3f4f6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#9ca3af' }}>QR unavailable</div>
+                    )}
                     <p className="text-xs text-gray-400 mt-2">Scan to register</p>
                   </div>
 

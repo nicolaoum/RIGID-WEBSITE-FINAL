@@ -19,7 +19,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { name, email, phone, subject, message } = body;
+    const { name, email, phone, subject, category, message } = body;
 
     // Validate required fields
     if (!name || !email || !message) {
@@ -49,6 +49,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (phone) item.phone = { S: phone };
     if (subject) item.subject = { S: subject };
+    if (category) item.category = { S: category };
+    item.notes = { S: '' };
+    item.updatedAt = { S: createdAt };
 
     await dynamoClient.putItem({
       TableName: inquiriesTable,

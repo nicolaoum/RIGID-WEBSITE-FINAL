@@ -12,6 +12,7 @@ export default function Contact() {
     email: '',
     phone: '',
     subject: '',
+    category: 'general',
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
@@ -39,6 +40,7 @@ export default function Contact() {
         email: sanitizeEmail(formData.email),
         phone: sanitizePhone(formData.phone),
         subject: sanitizeInput(formData.subject, 200),
+        category: formData.category,
         message: sanitizeInput(formData.message, 5000),
       };
 
@@ -56,7 +58,7 @@ export default function Contact() {
       });
       if (response.ok) {
         setSubmitted(true);
-        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setFormData({ name: '', email: '', phone: '', subject: '', category: 'general', message: '' });
       }
     } catch (error) {
       console.error('Failed to submit inquiry:', error);
@@ -160,6 +162,19 @@ export default function Contact() {
                         onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                         className={inputClass} placeholder="Inquiry about apartments" />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Inquiry Category</label>
+                    <select value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className={inputClass}>
+                      <option value="general">General Question</option>
+                      <option value="rental">Rental Inquiry</option>
+                      <option value="maintenance">Maintenance Issue</option>
+                      <option value="billing">Billing Question</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
 
                   <div>
